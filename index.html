@@ -1,59 +1,145 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <title>AI Roleplay Simulator</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"> 
+    <title>E-Simulator AI Full Version</title>
+    
     <style>
-        body { font-family: 'Sarabun', sans-serif; background: #1a1a1a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .chat-container { width: 90%; max-width: 500px; background: #2d2d2d; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        #status { color: #00ffcc; margin-bottom: 10px; font-size: 0.9em; }
-        .btn-mic { background: #ff4b2b; border: none; width: 80px; height: 80px; border-radius: 50%; cursor: pointer; display: block; margin: 20px auto; transition: 0.3s; }
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700&display=swap');
+        body { font-family: 'Sarabun', sans-serif; padding: 20px; text-align: center; background-color: #1a1a1a; color: white; }
+        .container-box { max-width: 700px; margin: 0 auto; padding: 20px; background: #2d2d2d; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .status-box { background: #444; padding: 15px; border-radius: 10px; margin: 20px 0; min-height: 60px; color: #00ffcc; }
+        .btn-mic { background: #ff4b2b; border: none; width: 100px; height: 100px; border-radius: 50%; cursor: pointer; font-size: 40px; transition: 0.3s; margin: 20px 0; }
         .btn-mic:active { transform: scale(0.9); }
-        .ai-response { background: #444; padding: 15px; border-radius: 10px; min-height: 50px; }
+        .btn-mic.recording { background: #ff0000; box-shadow: 0 0 20px #ff0000; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        button:disabled { background: #666 !important; cursor: not-allowed; }
+        .hidden { display: none; }
+        /* สไตล์เดิมบางส่วนของคุณ */
+        .btn-next { background: #337ab7; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <div class="chat-container">
-        <h2>AI Roleplay Test</h2>
-        <div id="status">กดปุ่มสีแดงแล้วเริ่มพูด...</div>
-        <div class="ai-response" id="ai-text">คำตอบจาก AI จะปรากฏที่นี่...</div>
-        <button class="btn-mic" id="recordBtn">🎤</button>
-        <audio id="audioPlayer" controls style="display:none"></audio>
+    <div class="container-box">
+        <h1>E-Simulator AI 🚀</h1>
+        <p>ระบบจำลองการขายอัจฉริยะ (Gemini 2.5 Flash)</p>
+        
+        <div class="status-box" id="ai-response-text">
+            รอการเริ่มต้น... กรุณากดปุ่มไมค์เพื่อพูดคุยกับ AI
+        </div>
+
+        <div id="main-ui">
+            <button class="btn-mic" id="recordBtn">🎤</button>
+            <p id="instruction">กดค้างหรือกดหนึ่งครั้งเพื่อพูด</p>
+        </div>
+
+        <div id="section-controls">
+            <button id="nextSectionBtn" class="btn-next hidden">ไปที่ Section ถัดไป</button>
+        </div>
+
+        <audio id="mainAudioPlayer" class="hidden"></audio>
     </div>
 
     <script>
-        let history = [];
-        const recordBtn = document.getElementById('recordBtn');
-        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        recognition.lang = 'th-TH';
+        let chatHistory = [];
+        let recognition;
+        let isRecording = false;
 
-        recordBtn.onclick = () => {
-            recognition.start();
-            document.getElementById('status').innerText = "กำลังฟัง...";
-        };
+        // 1. ตั้งค่าการฟังเสียง (Speech Recognition)
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.lang = 'th-TH';
+            recognition.interimResults = false;
 
-        recognition.onresult = async (event) => {
-            const userText = event.results[0][0].transcript;
-            document.getElementById('status').innerText = "AI กำลังคิดและแปลงเสียง...";
+            recognition.onresult = (event) => {
+                const userText = event.results[0][0].transcript;
+                callAIServer(userText);
+            };
 
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: userText, history: history })
-            });
+            recognition.onerror = (event) => {
+                console.error("Speech Error:", event.error);
+                updateStatus("❌ ไม่ได้ยินเสียง หรือเกิดข้อผิดพลาด");
+                toggleMicUI(false);
+            };
+        }
 
-            const result = await response.json();
+        // 2. ฟังก์ชันเรียก AI (Gemini + ElevenLabs)
+        async function callAIServer(userText) {
+            updateStatus("⏳ AI กำลังคิดและเตรียมเสียง...");
             
-            // แสดงข้อความและเล่นเสียง
-            document.getElementById('ai-text').innerText = result.text;
-            const audio = document.getElementById('audioPlayer');
-            audio.src = `data:audio/mp3;base64,${result.audio}`;
-            audio.play();
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        message: userText, 
+                        history: chatHistory,
+                        gender: 'female' // คุณสามารถเปลี่ยนเป็น 'male' ได้ตามต้องการ
+                    })
+                });
 
-            history.push({ role: "user", parts: [{ text: userText }] });
-            history.push({ role: "model", parts: [{ text: result.text }] });
-            document.getElementById('status').innerText = "เสร็จสิ้น (กดเพื่อคุยต่อ)";
+                const result = await response.json();
+                
+                if (result.error) throw new Error(result.error);
+
+                // แสดงข้อความที่ AI ตอบ
+                document.getElementById('ai-response-text').innerText = result.text;
+                
+                // เล่นเสียงที่ AI สร้าง
+                const player = document.getElementById('mainAudioPlayer');
+                player.src = `data:audio/mp3;base64,${result.audio}`;
+                player.play();
+
+                // บันทึกประวัติ
+                chatHistory.push({ role: "user", parts: [{ text: userText }] });
+                chatHistory.push({ role: "model", parts: [{ text: result.text }] });
+
+                updateStatus("✅ คุยต่อได้เลย...");
+                toggleMicUI(false);
+
+            } catch (error) {
+                console.error("AI Error:", error);
+                updateStatus("❌ ระบบขัดข้อง: " + error.message);
+                toggleMicUI(false);
+            }
+        }
+
+        // 3. จัดการปุ่มกดบันทึกเสียง
+        const recordBtn = document.getElementById('recordBtn');
+        recordBtn.onclick = () => {
+            if (!isRecording) {
+                recognition.start();
+                toggleMicUI(true);
+                updateStatus("กำลังฟังเสียงของคุณ...");
+            } else {
+                recognition.stop();
+                toggleMicUI(false);
+            }
         };
+
+        function toggleMicUI(recording) {
+            isRecording = recording;
+            if (recording) {
+                recordBtn.classList.add('recording');
+            } else {
+                recordBtn.classList.remove('recording');
+            }
+        }
+
+        function updateStatus(msg) {
+            document.getElementById('instruction').innerText = msg;
+        }
+
+        // ปลดล็อกระบบเสียง (สำคัญสำหรับ Browser)
+        document.body.addEventListener('click', function() {
+            const audio = document.getElementById('mainAudioPlayer');
+            if (audio.src === "") {
+                audio.play().catch(() => {}); 
+            }
+        }, { once: true });
+
     </script>
 </body>
 </html>
