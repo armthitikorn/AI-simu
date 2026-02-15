@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Roleplay Simulator</title>
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background: #1a1a1a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .chat-container { width: 90%; max-width: 500px; background: #2d2d2d; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #status { color: #00ffcc; margin-bottom: 10px; font-size: 0.9em; }
+        .btn-mic { background: #ff4b2b; border: none; width: 80px; height: 80px; border-radius: 50%; cursor: pointer; display: block; margin: 20px auto; transition: 0.3s; }
+        .btn-mic:active { transform: scale(0.9); }
+        .ai-response { background: #444; padding: 15px; border-radius: 10px; min-height: 50px; }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <h2>AI Roleplay Test</h2>
+        <div id="status">กดปุ่มสีแดงแล้วเริ่มพูด...</div>
+        <div class="ai-response" id="ai-text">คำตอบจาก AI จะปรากฏที่นี่...</div>
+        <button class="btn-mic" id="recordBtn">🎤</button>
+        <audio id="audioPlayer" controls style="display:none"></audio>
+    </div>
+
+    <script>
+        let history = [];
+        const recordBtn = document.getElementById('recordBtn');
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = 'th-TH';
+
+        recordBtn.onclick = () => {
+            recognition.start();
+            document.getElementById('status').innerText = "กำลังฟัง...";
+        };
+
+        recognition.onresult = async (event) => {
+            const userText = event.results[0][0].transcript;
+            document.getElementById('status').innerText = "AI กำลังคิดและแปลงเสียง...";
+
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: userText, history: history })
+            });
+
+            const result = await response.json();
+            
+            // แสดงข้อความและเล่นเสียง
+            document.getElementById('ai-text').innerText = result.text;
+            const audio = document.getElementById('audioPlayer');
+            audio.src = `data:audio/mp3;base64,${result.audio}`;
+            audio.play();
+
+            history.push({ role: "user", parts: [{ text: userText }] });
+            history.push({ role: "model", parts: [{ text: result.text }] });
+            document.getElementById('status').innerText = "เสร็จสิ้น (กดเพื่อคุยต่อ)";
+        };
+    </script>
+</body>
+</html>
