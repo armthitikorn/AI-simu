@@ -6,26 +6,26 @@ export default async function handler(req, res) {
     try {
         if (!process.env.GEMINI_API_KEY) throw new Error("Missing GEMINI_API_KEY");
 
-        // แก้ไข URL เป็น v1 และใช้รุ่น gemini-2.5-flash ตามที่คุณระบุใน Note
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+        // ใช้ v1beta เพราะรองรับฟีเจอร์ใหม่ๆ ได้ครบถ้วนที่สุด
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
 
         const geminiResponse = await fetch(geminiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: (history || []).concat([{ role: "user", parts: [{ text: message }] }]),
-                systemInstruction: { 
-                    parts: [{ text: "คุณคือ AI Simulator อัจฉริยะ (เวอร์ชัน 2.5) พูดไทยเป็นธรรมชาติ และโต้ตอบได้อย่างชาญฉลาด" }] 
+                // เปลี่ยนจาก systemInstruction เป็น system_instruction (snake_case)
+                system_instruction: { 
+                    parts: [{ text: "คุณคือ AI Simulator อัจฉริยะ พูดไทยเป็นธรรมชาติ และโต้ตอบได้อย่างชาญฉลาด" }] 
                 }
             })
         });
 
         const gData = await geminiResponse.json();
 
-        // เช็ค Error จาก Google
+        // ตรวจสอบ Error จาก API
         if (gData.error) {
-            // หากระบบแจ้งว่าหา 2.5 ไม่เจอ (กรณี API Key ยังไม่รองรับ) จะลองถอยไปใช้ 2.0 แทนอัตโนมัติ
-            console.error("Gemini Error:", gData.error.message);
+            console.error("Gemini API Error Detail:", gData.error);
             throw new Error(`Gemini API Error: ${gData.error.message}`);
         }
 
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
 
         // เรียก ElevenLabs
         const voiceId = (gender === 'female') ? process.env.VOICE_ID_FEMALE : process.env.VOICE_ID_MALE;
-        if (!voiceId) throw new Error("Missing VOICE_ID_FEMALE or VOICE_ID_MALE");
+        if (!voiceId) throw new Error("Missing Voice ID in Environment Variables");
 
         const voiceResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
             method: 'POST',
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
         res.status(200).json({ text: aiText, audio: base64Audio });
 
     } catch (error) {
-        console.error("Critical Failure:", error.message);
+        console.error("Server Failure:", error.message);
         res.status(500).json({ error: error.message });
     }
 }
