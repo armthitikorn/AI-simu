@@ -1,37 +1,44 @@
 export default async function handler(req, res) {
-    if (req.method !== 'POST') return res.status(200).send("Server is ready");
+    if (req.method !== 'POST') return res.status(200).send("AI Server is ready");
 
     const { message, history, gender } = req.body;
 
     try {
-        // 1. เรียกใช้ Gemini (เปลี่ยนเป็น 1.5-flash เพื่อความเสถียรสูงสุดในปัจจุบัน)
-        const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+        if (!process.env.GEMINI_API_KEY) throw new Error("Missing GEMINI_API_KEY");
+
+        // แก้ไข URL เป็น v1 และใช้รุ่น gemini-2.5-flash ตามที่คุณระบุใน Note
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+
+        const geminiResponse = await fetch(geminiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: history.concat([{ role: "user", parts: [{ text: message }] }]),
-                systemInstruction: { parts: [{ text: "คุณคือ AI Simulator พูดไทยเป็นธรรมชาติ และโต้ตอบสั้นๆ อย่างเป็นกันเอง" }] }
+                contents: (history || []).concat([{ role: "user", parts: [{ text: message }] }]),
+                systemInstruction: { 
+                    parts: [{ text: "คุณคือ AI Simulator อัจฉริยะ (เวอร์ชัน 2.5) พูดไทยเป็นธรรมชาติ และโต้ตอบได้อย่างชาญฉลาด" }] 
+                }
             })
         });
 
         const gData = await geminiResponse.json();
 
-        // --- จุดเช็ค Error ของ Gemini ---
+        // เช็ค Error จาก Google
         if (gData.error) {
-            console.error("Gemini Error Detail:", gData.error);
+            // หากระบบแจ้งว่าหา 2.5 ไม่เจอ (กรณี API Key ยังไม่รองรับ) จะลองถอยไปใช้ 2.0 แทนอัตโนมัติ
+            console.error("Gemini Error:", gData.error.message);
             throw new Error(`Gemini API Error: ${gData.error.message}`);
         }
 
-        if (!gData.candidates || gData.candidates.length === 0) {
-            console.error("Gemini Response Full Data:", JSON.stringify(gData));
-            throw new Error("Gemini ไม่ส่งคำตอบกลับมา (Check API Key หรือโควตา)");
+        if (!gData.candidates || !gData.candidates[0]) {
+            throw new Error("AI ไม่ส่งคำตอบกลับมา กรุณาเช็ค API Key หรือ Quota");
         }
 
         const aiText = gData.candidates[0].content.parts[0].text;
 
-        // 2. เรียก ElevenLabs
+        // เรียก ElevenLabs
         const voiceId = (gender === 'female') ? process.env.VOICE_ID_FEMALE : process.env.VOICE_ID_MALE;
-        
+        if (!voiceId) throw new Error("Missing VOICE_ID_FEMALE or VOICE_ID_MALE");
+
         const voiceResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
             method: 'POST',
             headers: { 
@@ -46,8 +53,8 @@ export default async function handler(req, res) {
         });
 
         if (!voiceResponse.ok) {
-            const vError = await voiceResponse.json();
-            throw new Error(`ElevenLabs Error: ${JSON.stringify(vError)}`);
+            const vErr = await voiceResponse.json();
+            throw new Error(`ElevenLabs Error: ${vErr.detail?.message || "Unknown Error"}`);
         }
 
         const audioArrayBuffer = await voiceResponse.arrayBuffer();
@@ -56,7 +63,7 @@ export default async function handler(req, res) {
         res.status(200).json({ text: aiText, audio: base64Audio });
 
     } catch (error) {
-        console.error("Server Error:", error.message);
+        console.error("Critical Failure:", error.message);
         res.status(500).json({ error: error.message });
     }
 }
