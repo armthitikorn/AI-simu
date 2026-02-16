@@ -1,145 +1,124 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"> 
-    <title>E-Simulator AI Full Version</title>
-    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Telesales Simulator Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700&display=swap');
-        body { font-family: 'Sarabun', sans-serif; padding: 20px; text-align: center; background-color: #1a1a1a; color: white; }
-        .container-box { max-width: 700px; margin: 0 auto; padding: 20px; background: #2d2d2d; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .status-box { background: #444; padding: 15px; border-radius: 10px; margin: 20px 0; min-height: 60px; color: #00ffcc; }
-        .btn-mic { background: #ff4b2b; border: none; width: 100px; height: 100px; border-radius: 50%; cursor: pointer; font-size: 40px; transition: 0.3s; margin: 20px 0; }
-        .btn-mic:active { transform: scale(0.9); }
-        .btn-mic.recording { background: #ff0000; box-shadow: 0 0 20px #ff0000; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        button:disabled { background: #666 !important; cursor: not-allowed; }
-        .hidden { display: none; }
-        /* สไตล์เดิมบางส่วนของคุณ */
-        .btn-next { background: #337ab7; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+        body { font-family: 'Kanit', sans-serif; background-color: #f0f2f5; }
+        .chat-container { height: calc(100vh - 180px); }
+        .glass-morphism { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
     </style>
 </head>
-<body>
-    <div class="container-box">
-        <h1>E-Simulator AI 🚀</h1>
-        <p>ระบบจำลองการขายอัจฉริยะ (Gemini 2.5 Flash)</p>
-        
-        <div class="status-box" id="ai-response-text">
-            รอการเริ่มต้น... กรุณากดปุ่มไมค์เพื่อพูดคุยกับ AI
-        </div>
+<body class="flex flex-col h-screen">
 
-        <div id="main-ui">
-            <button class="btn-mic" id="recordBtn">🎤</button>
-            <p id="instruction">กดค้างหรือกดหนึ่งครั้งเพื่อพูด</p>
+    <div id="welcome-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900 bg-opacity-95 text-white p-6">
+        <div class="text-center">
+            <h1 class="text-3xl font-bold mb-4 text-blue-400">Telesales Simulator</h1>
+            <p class="mb-8 text-slate-300">ยินดีต้อนรับสู่บททดสอบการขายประกันแบบเสมือนจริง</p>
+            <button id="start-btn" class="bg-blue-600 hover:bg-blue-500 text-white px-10 py-4 rounded-full text-xl font-medium transition-all transform hover:scale-105 active:scale-95 shadow-lg">
+                เข้าสู่การฝึกอบรม
+            </button>
+            <p class="mt-4 text-xs text-slate-500">* กรุณาเปิดเสียงลำโพงเพื่อรับชมบทบาทสมมติ *</p>
         </div>
-
-        <div id="section-controls">
-            <button id="nextSectionBtn" class="btn-next hidden">ไปที่ Section ถัดไป</button>
-        </div>
-
-        <audio id="mainAudioPlayer" class="hidden"></audio>
     </div>
 
+    <header class="glass-morphism sticky top-0 z-10 p-4 border-b border-slate-200 shadow-sm flex justify-between items-center">
+        <div class="flex items-center gap-2">
+            <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">P</div>
+            <div>
+                <h2 class="font-medium text-slate-800">คุณเปรมวดี</h2>
+                <p class="text-xs text-green-500 flex items-center gap-1">● กำลังออนไลน์</p>
+            </div>
+        </div>
+        <select id="level-select" class="bg-slate-100 text-sm border-none rounded-lg px-3 py-2 outline-none">
+            <option value="1">ด่าน 1: ลูกค้าใจดี</option>
+            <option value="2">ด่าน 2: ลูกค้าช่างเลือก</option>
+            <option value="3">ด่าน 3: ลูกค้าสายแข็ง</option>
+        </select>
+    </header>
+
+    <main id="chat-window" class="chat-container overflow-y-auto p-4 flex flex-col gap-4">
+        </main>
+
+    <footer class="p-4 bg-white border-t border-slate-200">
+        <form id="chat-form" class="max-w-4xl mx-auto flex gap-2">
+            <input type="text" id="user-input" placeholder="พิมพ์ข้อความของคุณที่นี่..." 
+                class="flex-1 bg-slate-100 rounded-2xl px-5 py-3 outline-none focus:ring-2 focus:ring-blue-400 transition-all">
+            <button type="submit" id="send-btn" class="bg-blue-600 p-3 rounded-full text-white hover:bg-blue-500 transition-all disabled:bg-slate-300">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+            </button>
+        </form>
+    </footer>
+
     <script>
-        let chatHistory = [];
-        let recognition;
-        let isRecording = false;
+        const chatWindow = document.getElementById('chat-window');
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const levelSelect = document.getElementById('level-select');
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const startBtn = document.getElementById('start-btn');
 
-        // 1. ตั้งค่าการฟังเสียง (Speech Recognition)
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognition = new SpeechRecognition();
-            recognition.lang = 'th-TH';
-            recognition.interimResults = false;
+        let history = [];
 
-            recognition.onresult = (event) => {
-                const userText = event.results[0][0].transcript;
-                callAIServer(userText);
-            };
-
-            recognition.onerror = (event) => {
-                console.error("Speech Error:", event.error);
-                updateStatus("❌ ไม่ได้ยินเสียง หรือเกิดข้อผิดพลาด");
-                toggleMicUI(false);
-            };
-        }
-
-        // 2. ฟังก์ชันเรียก AI (Gemini + ElevenLabs)
-        async function callAIServer(userText) {
-            updateStatus("⏳ AI กำลังคิดและเตรียมเสียง...");
+        // 🔊 ระบบแก้ปัญหา iPhone: ปลดล็อก AudioContext
+        let audioContext;
+        startBtn.addEventListener('click', () => {
+            welcomeScreen.classList.add('hidden');
+            // สร้างเสียงเงียบๆ เพื่อเบิกทางให้ iPhone ยอมรับเสียง
+            const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==');
+            silentAudio.play().catch(e => console.log("Audio Init error", e));
             
+            appendMessage('bot', 'สวัสดีค่ะ มีธุระอะไรหรือเปล่าคะ? (กรุณาแนะนำตัวตามกฎ คปภ.)');
+        });
+
+        const appendMessage = (role, text) => {
+            const div = document.createElement('div');
+            div.className = `max-w-[80%] p-4 rounded-2xl ${role === 'user' ? 'bg-blue-600 text-white self-end rounded-tr-none' : 'bg-white text-slate-800 self-start shadow-sm border border-slate-100 rounded-tl-none'}`;
+            div.innerText = text;
+            chatWindow.appendChild(div);
+            chatWindow.scrollTo({ top: chatWindow.scrollHeight, behavior: 'smooth' });
+        };
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            appendMessage('user', message);
+            userInput.value = '';
+
             try {
-                const response = await fetch('/api/chat', {
+                const res = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        message: userText, 
-                        history: chatHistory,
-                        gender: 'female' // คุณสามารถเปลี่ยนเป็น 'male' ได้ตามต้องการ
+                        message, 
+                        history, 
+                        gender: 'female',
+                        level: parseInt(levelSelect.value)
                     })
                 });
 
-                const result = await response.json();
-                
-                if (result.error) throw new Error(result.error);
+                const data = await res.json();
+                appendMessage('bot', data.text);
+                history.push({ role: 'user', parts: [{ text: message }] });
+                history.push({ role: 'model', parts: [{ text: data.text }] });
 
-                // แสดงข้อความที่ AI ตอบ
-                document.getElementById('ai-response-text').innerText = result.text;
-                
-                // เล่นเสียงที่ AI สร้าง
-                const player = document.getElementById('mainAudioPlayer');
-                player.src = `data:audio/mp3;base64,${result.audio}`;
-                player.play();
-
-                // บันทึกประวัติ
-                chatHistory.push({ role: "user", parts: [{ text: userText }] });
-                chatHistory.push({ role: "model", parts: [{ text: result.text }] });
-
-                updateStatus("✅ คุยต่อได้เลย...");
-                toggleMicUI(false);
-
+                // 🔊 เล่นเสียง (วิธีนี้รองรับ iOS หลังจากการคลิกปุ่ม Start)
+                if (data.audio) {
+                    const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
+                    audio.play();
+                }
             } catch (error) {
-                console.error("AI Error:", error);
-                updateStatus("❌ ระบบขัดข้อง: " + error.message);
-                toggleMicUI(false);
+                console.error("Error:", error);
+                appendMessage('bot', 'ขออภัยค่ะ ระบบขัดข้องนิดหน่อย');
             }
-        }
-
-        // 3. จัดการปุ่มกดบันทึกเสียง
-        const recordBtn = document.getElementById('recordBtn');
-        recordBtn.onclick = () => {
-            if (!isRecording) {
-                recognition.start();
-                toggleMicUI(true);
-                updateStatus("กำลังฟังเสียงของคุณ...");
-            } else {
-                recognition.stop();
-                toggleMicUI(false);
-            }
-        };
-
-        function toggleMicUI(recording) {
-            isRecording = recording;
-            if (recording) {
-                recordBtn.classList.add('recording');
-            } else {
-                recordBtn.classList.remove('recording');
-            }
-        }
-
-        function updateStatus(msg) {
-            document.getElementById('instruction').innerText = msg;
-        }
-
-        // ปลดล็อกระบบเสียง (สำคัญสำหรับ Browser)
-        document.body.addEventListener('click', function() {
-            const audio = document.getElementById('mainAudioPlayer');
-            if (audio.src === "") {
-                audio.play().catch(() => {}); 
-            }
-        }, { once: true });
-
+        });
     </script>
 </body>
 </html>
