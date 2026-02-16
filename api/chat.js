@@ -7,19 +7,18 @@ export default async function handler(req, res) {
         // --- 1. ตั้งค่าระดับความยาก (System Instruction) ---
         let difficultyContext = "";
         if (level === 1) {
-            difficultyContext = "[ระดับ: ลูกค้าใจดี] สุภาพ คุยง่าย สนใจประกันออมเงิน/ลดหย่อนภาษี";
+            difficultyContext = "[ระดับ: ลูกค้าใจดี] สุภาพ นิ่งๆ มั่นใจ";
         } else if (level === 2) {
-            difficultyContext = "[ระดับ: ลูกค้าช่างเลือก] รอบคอบ ถามละเอียดเรื่องสุขภาพและประกันสะสมทรัพย์";
+            difficultyContext = "[ระดับ: ลูกค้าช่างเลือก] รอบคอบ ถามจี้จุด สงสัยในรายละเอียด";
         } else {
-            difficultyContext = "[ระดับ: ลูกค้าสายแข็ง] ยุ่งมาก ปฏิเสธเก่ง มีอคติกับประกัน";
+            difficultyContext = "[ระดับ: ลูกค้าสายแข็ง] มีอำนาจ ตัดสินใจเด็ดขาด ไม่ชอบคนพูดจาเวิ่นเว้อ";
         }
 
-        // ปรับ Prompt ให้ Gemini ห้ามใส่เครื่องหมายพิเศษ
-        const systemPrompt = `คุณคือ "คุณเปรมวดี" ลูกค้าฝึกขายประกัน
+        const systemPrompt = `คุณคือ "คุณเปรมวดี" ลูกค้าที่จะมาฝึกพนักงานขาย
         กฎเหล็ก:
         1. ตรวจสอบการแนะนำตัว, เลขใบอนุญาต, และการขออัดเสียง
-        2. บทบาทของคุณคือ: ${difficultyContext}
-        3. สำคัญมาก: ห้ามใช้เครื่องหมายดอกจัน (*) หรือสัญลักษณ์พิเศษในข้อความ ให้ตอบเป็นข้อความธรรมดาที่คนพูดกันจริงๆ เท่านั้น`;
+        2. บทบาท: ${difficultyContext}
+        3. ห้ามใช้เครื่องหมายพิเศษ (* หรือ -) ให้ตอบเป็นประโยคพูดที่ลื่นไหลเท่านั้น`;
 
         // --- 2. เรียกใช้ Gemini 2.5 Flash ---
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
@@ -33,15 +32,12 @@ export default async function handler(req, res) {
         });
 
         const gData = await geminiResponse.json();
-        let aiText = gData.candidates[0].content.parts[0].text;
+        const aiText = gData.candidates[0].content.parts[0].text;
 
-        // --- 🛠️ ส่วนที่เพิ่มใหม่: ล้างตัวอักษรส่วนเกินให้ AI พูดลื่นขึ้น ---
-        // ลบเครื่องหมาย * (ที่มักมากับตัวหนา), ลบเครื่องหมาย -, ลบช่องว่างส่วนเกิน
-        let cleanText = aiText.replace(/[*#\-_]/g, '') // ลบดอกจัน, สี่เหลี่ยม, ขีดกลาง, ขีดล่าง
-                             .replace(/\s+/g, ' ')    // ยุบช่องว่างเยอะๆ ให้เหลือช่องเดียว
-                             .trim();                 // ตัดช่องว่างหน้า-หลัง
+        // ล้างตัวอักษรส่วนเกิน
+        let cleanText = aiText.replace(/[*#\-_]/g, '').replace(/\s+/g, ' ').trim();
 
-        // --- 3. เรียกใช้ Microsoft Azure Speech ---
+        // --- 3. เรียกใช้ Microsoft Azure Speech พร้อมปรับแต่งน้ำเสียง (SSML) ---
         const azureRegion = process.env.AZURE_REGION || 'southeastasia';
         const azureKey = process.env.AZURE_API_KEY;
         const voiceName = (gender === 'male') ? 'th-TH-NiwatNeural' : 'th-TH-PremwadeeNeural';
@@ -53,8 +49,14 @@ export default async function handler(req, res) {
                 'Content-Type': 'application/ssml+xml',
                 'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3'
             },
-            // ใช้ cleanText แทน aiText เพื่อความลื่นไหล
-            body: `<speak version='1.0' xml:lang='th-TH'><voice xml:lang='th-TH' name='${voiceName}'>${cleanText}</voice></speak>`
+            // ส่วนสำคัญ: ปรับ rate (ความเร็ว) และ pitch (ระดับเสียง) เพื่อให้ดูสมูทและมีอำนาจ
+            body: `<speak version='1.0' xml:lang='th-TH'>
+                    <voice xml:lang='th-TH' name='${voiceName}'>
+                        <prosody rate="0.95" pitch="-5%">
+                            ${cleanText}
+                        </prosody>
+                    </voice>
+                  </speak>`
         });
 
         if (!azureResponse.ok) throw new Error("Azure TTS Error");
