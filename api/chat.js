@@ -1,33 +1,27 @@
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(200).send("Azure & Gemini Server Ready");
 
-    // รับข้อมูลจากหน้าบ้าน (ส่ง level มาเพื่อเลือกความยาก 1, 2, หรือ 3)
     const { message, history, gender, level = 1 } = req.body;
 
     try {
         // --- 1. ตั้งค่าระดับความยาก (System Instruction) ---
         let difficultyContext = "";
         if (level === 1) {
-            difficultyContext = "[ระดับ: ลูกค้าใจดี] สุภาพ คุยง่าย สนใจประกันออมเงิน/ลดหย่อนภาษี ถามเรื่องผลประโยชน์ทั่วไป";
+            difficultyContext = "[ระดับ: ลูกค้าใจดี] สุภาพ คุยง่าย สนใจประกันออมเงิน/ลดหย่อนภาษี";
         } else if (level === 2) {
-            difficultyContext = "[ระดับ: ลูกค้าช่างเลือก] รอบคอบ ถามละเอียดเรื่องสุขภาพและประกันสะสมทรัพย์ เปรียบเทียบผลตอบแทนเก่ง";
+            difficultyContext = "[ระดับ: ลูกค้าช่างเลือก] รอบคอบ ถามละเอียดเรื่องสุขภาพและประกันสะสมทรัพย์";
         } else {
-            difficultyContext = "[ระดับ: ลูกค้าสายแข็ง] ยุ่งมาก ขี้รำคาญ ปฏิเสธเก่ง มีอคติกับประกัน ต้องใช้ศิลปะการจูงใจสูง";
+            difficultyContext = "[ระดับ: ลูกค้าสายแข็ง] ยุ่งมาก ปฏิเสธเก่ง มีอคติกับประกัน";
         }
 
-        const systemPrompt = `คุณคือ "คุณเปรมวดี" ลูกค้าที่จะมาช่วยฝึกทักษะการขายประกันทางโทรศัพท์
-        
-**กฎเหล็ก คปภ. (ต้องตรวจ):**
-1. ในช่วงแรก พนักงานต้องทำ 3 ข้อนี้ให้ครบ: (1) แนะนำชื่อ-บริษัท (2) แจ้งเลขที่ใบอนุญาต (3) ขออนุญาตบันทึกเสียง
-2. หากทำไม่ครบ คุณต้องทักท้วงและไม่ยอมฟังข้อเสนอเด็ดขาด เช่น "คุณชื่ออะไรนะคะ?", "มีใบอนุญาตไหม?"
-3. เมื่อทำครบแล้ว คุณจึงจะเข้าสู่บทบาทลูกค้าตามระดับความยาก
+        // ปรับ Prompt ให้ Gemini ห้ามใส่เครื่องหมายพิเศษ
+        const systemPrompt = `คุณคือ "คุณเปรมวดี" ลูกค้าฝึกขายประกัน
+        กฎเหล็ก:
+        1. ตรวจสอบการแนะนำตัว, เลขใบอนุญาต, และการขออัดเสียง
+        2. บทบาทของคุณคือ: ${difficultyContext}
+        3. สำคัญมาก: ห้ามใช้เครื่องหมายดอกจัน (*) หรือสัญลักษณ์พิเศษในข้อความ ให้ตอบเป็นข้อความธรรมดาที่คนพูดกันจริงๆ เท่านั้น`;
 
-**บทบาทปัจจุบันของคุณ:**
-${difficultyContext}
-
-**เป้าหมาย:** จะตกลงซื้อก็ต่อเมื่อพนักงานนำเสนอได้ถูกต้อง ตามกฎ คปภ. และตอบคำถามได้ตรงจุด`;
-
-        // --- 2. เรียกใช้ Gemini 2.5 Flash (สมอง) ---
+        // --- 2. เรียกใช้ Gemini 2.5 Flash ---
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
         const geminiResponse = await fetch(geminiUrl, {
             method: 'POST',
@@ -39,10 +33,15 @@ ${difficultyContext}
         });
 
         const gData = await geminiResponse.json();
-        if (!gData.candidates) throw new Error("Gemini Error: " + JSON.stringify(gData));
-        const aiText = gData.candidates[0].content.parts[0].text;
+        let aiText = gData.candidates[0].content.parts[0].text;
 
-        // --- 3. เรียกใช้ Microsoft Azure Speech (เสียงไทยแท้) ---
+        // --- 🛠️ ส่วนที่เพิ่มใหม่: ล้างตัวอักษรส่วนเกินให้ AI พูดลื่นขึ้น ---
+        // ลบเครื่องหมาย * (ที่มักมากับตัวหนา), ลบเครื่องหมาย -, ลบช่องว่างส่วนเกิน
+        let cleanText = aiText.replace(/[*#\-_]/g, '') // ลบดอกจัน, สี่เหลี่ยม, ขีดกลาง, ขีดล่าง
+                             .replace(/\s+/g, ' ')    // ยุบช่องว่างเยอะๆ ให้เหลือช่องเดียว
+                             .trim();                 // ตัดช่องว่างหน้า-หลัง
+
+        // --- 3. เรียกใช้ Microsoft Azure Speech ---
         const azureRegion = process.env.AZURE_REGION || 'southeastasia';
         const azureKey = process.env.AZURE_API_KEY;
         const voiceName = (gender === 'male') ? 'th-TH-NiwatNeural' : 'th-TH-PremwadeeNeural';
@@ -54,7 +53,8 @@ ${difficultyContext}
                 'Content-Type': 'application/ssml+xml',
                 'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3'
             },
-            body: `<speak version='1.0' xml:lang='th-TH'><voice xml:lang='th-TH' name='${voiceName}'>${aiText}</voice></speak>`
+            // ใช้ cleanText แทน aiText เพื่อความลื่นไหล
+            body: `<speak version='1.0' xml:lang='th-TH'><voice xml:lang='th-TH' name='${voiceName}'>${cleanText}</voice></speak>`
         });
 
         if (!azureResponse.ok) throw new Error("Azure TTS Error");
@@ -62,8 +62,7 @@ ${difficultyContext}
         const audioArrayBuffer = await azureResponse.arrayBuffer();
         const base64Audio = Buffer.from(audioArrayBuffer).toString('base64');
 
-        // ส่งผลลัพธ์กลับไปที่หน้าจอ
-        res.status(200).json({ text: aiText, audio: base64Audio });
+        res.status(200).json({ text: cleanText, audio: base64Audio });
 
     } catch (error) {
         console.error("Error:", error.message);
