@@ -3,109 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voice AI Telesales Simulator</title>
+    <title>Voice AI Telesales Simulator Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Kanit', sans-serif; background-color: #f0f2f5; }
+        body { font-family: 'Kanit', sans-serif; background-color: #f8fafc; }
         .mic-active { animation: pulse 1.5s infinite; background-color: #ef4444 !important; }
         @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .chat-container { height: calc(100vh - 220px); }
     </style>
 </head>
 <body class="flex flex-col h-screen overflow-hidden">
 
     <div id="welcome-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900 text-white p-6 text-center">
         <div>
-            <h1 class="text-4xl font-bold mb-6 text-blue-400">Voice Simulator</h1>
-            <p class="mb-10 text-slate-300">กดปุ่มด้านล่างเพื่อเริ่มการฝึกขายด้วย "เสียง" เท่านั้น</p>
+            <h1 class="text-4xl font-bold mb-6 text-blue-400">Telesales Simulator</h1>
+            <p class="mb-10 text-slate-300 italic">"ฝึกพูด ฝึกขาย พัฒนาสู่มืออาชีพ"</p>
             <button id="start-btn" class="bg-blue-600 hover:bg-blue-500 text-white px-12 py-5 rounded-full text-2xl shadow-2xl transition-all active:scale-95">
                 เริ่มการสนทนา
             </button>
         </div>
     </div>
 
-    <header class="p-4 bg-white border-b flex justify-between items-center shadow-sm">
+    <header class="p-4 bg-white border-b flex justify-between items-center shadow-md z-10">
         <div class="flex items-center gap-3">
             <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-xl font-bold">P</div>
             <div>
-                <h2 class="font-bold text-slate-800 text-lg">คุณเปรมวดี</h2>
-                <span id="status" class="text-xs text-slate-400">รอคุณเริ่มพูด...</span>
+                <h2 class="font-bold text-slate-800 text-lg leading-none">คุณเปรมวดี</h2>
+                <span id="status" class="text-[10px] text-green-500 font-medium tracking-wider uppercase">Online</span>
             </div>
         </div>
-        <select id="level-select" class="bg-slate-100 rounded-lg px-3 py-2 text-sm outline-none">
-            <option value="1">ด่าน 1: ใจดี</option>
-            <option value="2">ด่าน 2: ช่างเลือก</option>
-            <option value="3">ด่าน 3: สายแข็ง</option>
-        </select>
+        <div class="flex gap-2">
+            <select id="level-select" class="bg-slate-100 rounded-lg px-2 py-1 text-xs outline-none border border-slate-200">
+                <option value="1">ด่าน 1: ใจดี</option>
+                <option value="2">ด่าน 2: ช่างเลือก</option>
+                <option value="3">ด่าน 3: สายแข็ง</option>
+            </select>
+            <button id="end-call-btn" class="bg-red-500 text-white px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-600 shadow-sm transition-colors">วางสาย</button>
+        </div>
     </header>
 
-    <main id="chat-window" class="flex-1 overflow-y-auto p-6 flex flex-col gap-4 bg-slate-50">
+    <main id="chat-window" class="chat-container overflow-y-auto p-6 flex flex-col gap-4 bg-slate-50">
         </main>
 
-    <footer class="p-8 bg-white border-t flex flex-col items-center justify-center gap-4">
+    <footer class="p-6 bg-white border-t flex flex-col items-center justify-center gap-2 shadow-inner">
         <button id="mic-btn" class="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl transition-all active:scale-90">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
             </svg>
         </button>
-        <p id="instruction" class="text-slate-500 font-medium text-sm text-center">แตะที่ไมโครโฟนเพื่อพูด</p>
-        <div id="user-transcript" class="text-blue-600 italic text-sm text-center min-h-[20px]"></div>
+        <p id="instruction" class="text-slate-400 text-sm">แตะที่ไมค์เพื่อเริ่มพูด</p>
+        <div id="user-transcript" class="text-blue-500 italic text-xs h-4 overflow-hidden"></div>
     </footer>
+
+    <div id="eval-modal" class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl">
+            <div class="bg-blue-600 p-8 text-center text-white">
+                <h3 class="text-3xl font-bold">สรุปผลการฝึก</h3>
+                <p class="text-blue-200 text-sm mt-1">วิเคราะห์โดย AI Trainer</p>
+            </div>
+            <div class="p-8 space-y-6">
+                <div class="flex justify-center">
+                    <div id="score-circle" class="w-32 h-32 rounded-full border-8 border-blue-500 flex flex-col items-center justify-center text-white bg-blue-600">
+                        <span class="text-4xl font-bold" id="score-val">0</span>
+                        <span class="text-[10px] uppercase tracking-widest">Score</span>
+                    </div>
+                </div>
+                <div id="eval-details" class="space-y-4 text-sm leading-relaxed"></div>
+            </div>
+            <div class="p-6 bg-slate-50 border-t flex justify-center">
+                <button onclick="location.reload()" class="bg-slate-800 text-white px-10 py-3 rounded-full font-bold hover:bg-slate-700 transition-all shadow-lg">ฝึกใหม่อีกครั้ง</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         const chatWindow = document.getElementById('chat-window');
         const micBtn = document.getElementById('mic-btn');
-        const statusText = document.getElementById('status');
         const instruction = document.getElementById('instruction');
         const userTranscript = document.getElementById('user-transcript');
         const welcomeScreen = document.getElementById('welcome-screen');
         const startBtn = document.getElementById('start-btn');
+        const endCallBtn = document.getElementById('end-call-btn');
 
         let history = [];
         let recognition;
 
-        // 🔊 เริ่มระบบ Web Speech API (สำหรับการฟัง)
+        // 🔊 เริ่มต้นระบบ Speech Recognition (สำหรับการพูด)
         if ('webkitSpeechRecognition' in window) {
             recognition = new webkitSpeechRecognition();
             recognition.lang = 'th-TH';
             recognition.interimResults = true;
 
-            recognition.onstart = () => {
-                micBtn.classList.add('mic-active');
-                statusText.innerText = "กำลังฟัง...";
-                instruction.innerText = "กำลังตั้งใจฟังคุณอยู่...";
-            };
-
+            recognition.onstart = () => { micBtn.classList.add('mic-active'); instruction.innerText = "กำลังฟัง..."; };
             recognition.onresult = (event) => {
                 const text = event.results[0][0].transcript;
-                userTranscript.innerText = `คุณกำลังพูด: "${text}"`;
-                if (event.results[0].isFinal) {
-                    sendToAI(text);
-                }
+                userTranscript.innerText = `พูดว่า: ${text}`;
+                if (event.results[0].isFinal) sendToAI(text);
             };
-
-            recognition.onend = () => {
-                micBtn.classList.remove('mic-active');
-                statusText.innerText = "รอคุณเริ่มพูด...";
-                instruction.innerText = "แตะไมค์เพื่อพูดอีกครั้ง";
-            };
+            recognition.onend = () => { micBtn.classList.remove('mic-active'); instruction.innerText = "แตะไมค์เพื่อพูดต่อ"; };
         }
 
         startBtn.addEventListener('click', () => {
             welcomeScreen.classList.add('hidden');
-            // เริ่มต้น AudioContext สำหรับ iOS
             const silent = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==');
             silent.play();
-            appendMessage('bot', 'ฮัลโหลค่ะ... ใครสายคะ? โทรจากไหน?');
+            appendMessage('bot', 'ฮัลโหลค่ะ... ใครสายคะ? โทรจากไหนคะ?');
         });
 
-        micBtn.addEventListener('click', () => {
-            if (recognition) recognition.start();
-        });
+        micBtn.addEventListener('click', () => { if (recognition) recognition.start(); });
 
         const appendMessage = (role, text) => {
             const div = document.createElement('div');
-            div.className = `max-w-[85%] p-4 rounded-2xl ${role === 'user' ? 'bg-blue-600 text-white self-end rounded-tr-none' : 'bg-white text-slate-800 self-start shadow-sm rounded-tl-none'}`;
+            div.className = `max-w-[85%] p-4 rounded-2xl shadow-sm text-sm ${role === 'user' ? 'bg-blue-600 text-white self-end rounded-tr-none' : 'bg-white text-slate-800 self-start border border-slate-100 rounded-tl-none'}`;
             div.innerText = text;
             chatWindow.appendChild(div);
             chatWindow.scrollTo({ top: chatWindow.scrollHeight, behavior: 'smooth' });
@@ -114,40 +124,42 @@
         async function sendToAI(message) {
             appendMessage('user', message);
             userTranscript.innerText = "";
-            statusText.innerText = "คุณเปรมวดีกำลังคิด...";
-
             try {
                 const res = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        message, 
-                        history, 
-                        level: parseInt(document.getElementById('level-select').value) 
-                    })
+                    body: JSON.stringify({ message, history, level: parseInt(document.getElementById('level-select').value) })
                 });
-
                 const data = await res.json();
                 appendMessage('bot', data.text);
-                
-                // เก็บประวัติ
                 history.push({ role: "user", parts: [{ text: message }] });
                 history.push({ role: "model", parts: [{ text: data.text }] });
-
-                // 🔊 เล่นเสียงเปรมวดี
                 if (data.audio) {
                     const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
-                    audio.onended = () => {
-                        statusText.innerText = "รอคุณตอบกลับ...";
-                        // ถ้าอยากให้ไมค์เปิดอัตโนมัติหลังพูดจบ ให้ใส่ recognition.start() ตรงนี้
-                    };
                     audio.play();
                 }
-            } catch (error) {
-                console.error(error);
-                appendMessage('bot', 'ขอโทษค่ะ สัญญาณไม่ดีเลย');
-            }
+            } catch (error) { console.error(error); }
         }
+
+        endCallBtn.addEventListener('click', async () => {
+            if (history.length === 0) return alert("ยังไม่ได้เริ่มคุยเลยค่ะ");
+            endCallBtn.innerText = "กำลังประเมิน...";
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ history, isEnding: true })
+                });
+                const data = await res.json();
+                document.getElementById('eval-modal').classList.remove('hidden');
+                document.getElementById('score-val').innerText = data.evaluation.score;
+                document.getElementById('eval-details').innerHTML = `
+                    <p class="text-blue-700 font-bold">✅ จุดแข็ง: <span class="font-normal text-slate-600">${data.evaluation.strengths}</span></p>
+                    <p class="text-red-600 font-bold">⚠️ สิ่งที่ต้องแก้: <span class="font-normal text-slate-600">${data.evaluation.weaknesses}</span></p>
+                    <p class="text-slate-800 font-bold">🎤 น้ำเสียงและอารมณ์: <span class="font-normal text-slate-500 italic">${data.evaluation.tone_feedback}</span></p>
+                `;
+            } catch (e) { alert("ระบบประเมินผลขัดข้อง"); }
+        });
     </script>
 </body>
 </html>
