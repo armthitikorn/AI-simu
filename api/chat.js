@@ -4,23 +4,16 @@ export default async function handler(req, res) {
     const { message, history, gender, level = 1 } = req.body;
 
     try {
-        // --- 1. ปรับสมองให้เป็น "ลูกค้าจริงๆ" ไม่ใช่บอทตรวจข้อสอบ ---
-        const systemPrompt = `คุณคือ "คุณเปรมวดี" ผู้หญิงวัยทำงานที่กำลังยุ่งอยู่กับงาน และจู่ๆ ก็มีเบอร์แปลกโทรเข้ามา
+        // --- 1. สั่ง Gemini ให้เลิกใส่คำบรรยายอารมณ์ ---
+        const systemPrompt = `คุณคือ "คุณเปรมวดี" ลูกค้าที่จะมาฝึกพนักงานขาย
         
-**ลักษณะนิสัย:**
-- คุณไม่รู้มาก่อนว่าจะถูกขายประกัน คุณจะเริ่มบทสนทนาด้วยความสงสัย หรือระแวง (เพราะมิจฉาชีพเยอะ)
-- **ความเป็นธรรมชาติ:** ใช้คำพูดเหมือนคนคุยกันจริงๆ เช่น "เอ่อ... คือ", "จากที่ไหนนะคะ?", "เดี๋ยวนะคะ พอดีไม่สะดวก", "อ๋อ ค่ะ แล้วยังไงต่อคะ?"
-- **การตรวจเช็ค (แบบเนียนๆ):** คุณจะไม่บอกว่า "คุณทำผิดกฎ" แต่คุณจะถามเพราะความระแวง เช่น:
-    * ถ้าเขาไม่แนะนำตัว: "เดี๋ยวนะคะ นี่ใครคะ? โทรจากไหน?"
-    * ถ้าเขาไม่บอกเลขใบอนุญาต: "เอ่อ... คุณมีเลขตัวแทนยืนยันไหมคะ คือช่วงนี้คนโทรมาแอบอ้างเยอะน่ะค่ะ"
-    * ถ้าไม่ขออัดเสียง: "นี่มีการบันทึกเสียงไว้ด้วยหรือเปล่าคะ?"
+**บทบาทของคุณ:**
+- คุณคือคนจริงๆ ที่รับโทรศัพท์ ไม่รู้มาก่อนว่าจะถูกขายประกัน
+- **กฎสำคัญ:** ห้ามใส่คำบรรยายอารมณ์หรือท่าทางในวงเล็บ เช่น (สงสัย) หรือ (ยิ้ม) ให้ตอบเฉพาะ "คำพูด" ที่จะออกจากปากจริงๆ เท่านั้น
+- ความเป็นธรรมชาติ: ใช้คำว่า "ค่ะ", "นะคะ", "เอ่อ", "คือ" ได้ตามสถานการณ์จริง
+- ถ้าพนักงานทำไม่ถูกกฎ คปภ. (ชื่อ/ใบอนุญาต/อัดเสียง) ให้ถามด้วยความระแวงแบบคนปกติ ไม่ใช่บอทตรวจข้อสอบ
 
-**ระดับอารมณ์:**
-- เลเวล 1: ใจดีแต่ระแวงนิดๆ ถ้าพนักงานพูดจาดี แจ้งข้อมูลครบ คุณจะเริ่มรับฟัง
-- เลเวล 2: ขี้สงสัย ถามเยอะ เน้นความคุ้มครองสุขภาพ/เงินออม
-- เลเวล 3: รำคาญและยุ่งมาก ปฏิเสธเก่ง ถ้าพนักงานไม่ "มืออาชีพจริง" คุณจะวางสายทันที
-
-**ข้อห้าม:** ห้ามใส่เครื่องหมายดอกจัน (*) หรือสัญลักษณ์แปลกๆ ให้ตอบเป็นข้อความแชท/คำพูดปกติเท่านั้น`;
+**ระดับอารมณ์:** ปัจจุบันคือเลเวล ${level}`;
 
         // --- 2. เรียกใช้ Gemini 2.5 Flash ---
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
@@ -36,10 +29,15 @@ export default async function handler(req, res) {
         const gData = await geminiResponse.json();
         const aiText = gData.candidates[0].content.parts[0].text;
 
-        // ล้างตัวอักษรส่วนเกิน
-        let cleanText = aiText.replace(/[*#\-_]/g, '').replace(/\s+/g, ' ').trim();
+        // --- 🛠️ ส่วนที่เพิ่มใหม่: ล้างวงเล็บและสัญลักษณ์พิเศษ ---
+        let cleanText = aiText
+            .replace(/\(.*?\)/g, '')   // ลบข้อความในวงเล็บกลม (...) ออกทั้งหมด
+            .replace(/\[.*?\]/g, '')   // ลบข้อความในวงเล็บเหลี่ยม [...] ออกทั้งหมด
+            .replace(/[*#\-_]/g, '')   // ลบเครื่องหมายพิเศษอื่นๆ
+            .replace(/\s+/g, ' ')      // ยุบช่องว่าง
+            .trim();
 
-        // --- 3. เรียกใช้ Microsoft Azure Speech (เน้นความละมุน) ---
+        // --- 3. เรียกใช้ Microsoft Azure Speech ---
         const azureRegion = process.env.AZURE_REGION || 'southeastasia';
         const azureKey = process.env.AZURE_API_KEY;
         const voiceName = (gender === 'male') ? 'th-TH-NiwatNeural' : 'th-TH-PremwadeeNeural';
@@ -51,7 +49,6 @@ export default async function handler(req, res) {
                 'Content-Type': 'application/ssml+xml',
                 'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3'
             },
-            // ปรับ rate เป็น 1.0 (ปกติ) แต่ใช้ pitch ทุ้มเพื่อให้ดูสุขุมและมีอำนาจ
             body: `<speak version='1.0' xml:lang='th-TH'>
                     <voice xml:lang='th-TH' name='${voiceName}'>
                         <prosody rate="1.0" pitch="-3%">
@@ -64,7 +61,8 @@ export default async function handler(req, res) {
         const audioArrayBuffer = await azureResponse.arrayBuffer();
         const base64Audio = Buffer.from(audioArrayBuffer).toString('base64');
 
-        res.status(200).json({ text: cleanText, audio: base64Audio });
+        // ส่งข้อความดิบ (aiText) กลับไปโชว์ในแชท แต่ส่งเสียง (cleanText) ไปให้ฟัง
+        res.status(200).json({ text: aiText, audio: base64Audio });
 
     } catch (error) {
         res.status(500).json({ error: error.message });
