@@ -31,7 +31,7 @@ export default async function handler(req, res) {
                 'Content-Type': 'application/ssml+xml',
                 'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3'
             },
-            body: `<speak version='1.0' xml:lang='th-TH'><voice xml:lang='th-TH' name='th-TH-PremwadeeNeural'><prosody rate="1.0" pitch="-3%">${cleanText}</prosody></voice></speak>`
+            body: `<speak version='0.88' xml:lang='th-TH'><voice xml:lang='th-TH' name='th-TH-PremwadeeNeural'><prosody rate="0.88" pitch="-3%">${cleanText}</prosody></voice></speak>`
         });
 
         const audioBuffer = await azureResponse.arrayBuffer();
