@@ -3,10 +3,12 @@ export default async function handler(req, res) {
     const { message, history, level } = req.body;
 
     try {
-        const systemPrompt = `คุณคือ "คุณเปรมวดี" (ผู้หญิง 100%) ลูกค้าที่มีความภูมิฐาน 
-        กฎ: ห้ามใช้คำว่า "ครับ", ห้ามใส่ข้อความในวงเล็บเด็ดขาด, พูดเฉพาะ "ค่ะ/คะ"
-        บทบาท: คุณกำลังยุ่งแต่จะยอมคุยถ้าพนักงานแนะนำตัว/เลขใบอนุญาต/ขออัดเสียง ได้ถูกต้องตามกฎ คปภ.
-        ปัจจุบันคือความยากระดับ ${level}`;
+        const systemPrompt = `คุณคือ "คุณเปรมวดี" ลูกค้าผู้หญิงที่มีความภูมิฐานและสุขุม
+        กฎสำคัญ:
+        - ห้ามใช้คำว่า "ครับ", พูดเฉพาะ "ค่ะ/คะ"
+        - ห้ามใส่ข้อความในวงเล็บ หรือสัญลักษณ์พิเศษ
+        - ตอบเป็นประโยคที่สั้น กระชับ และเป็นธรรมชาติเหมือนคนคุยกันจริงๆ ไม่ต้องรีบตอบ
+        - บทบาท: ปัจจุบันคือระดับความยากที่ ${level}`;
 
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
         const gRes = await fetch(geminiUrl, {
@@ -31,7 +33,14 @@ export default async function handler(req, res) {
                 'Content-Type': 'application/ssml+xml',
                 'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3'
             },
-            body: `<speak version='0.88' xml:lang='th-TH'><voice xml:lang='th-TH' name='th-TH-PremwadeeNeural'><prosody rate="0.88" pitch="-3%">${cleanText}</prosody></voice></speak>`
+            // 🎙️ จุดที่ปรับความเร็ว: rate="0.88" คือช้าลงให้ฟังทันและดูใจเย็น
+            body: `<speak version='1.0' xml:lang='th-TH'>
+                    <voice xml:lang='th-TH' name='th-TH-PremwadeeNeural'>
+                        <prosody rate="0.88" pitch="-3%">
+                            ${cleanText}
+                        </prosody>
+                    </voice>
+                  </speak>`
         });
 
         const audioBuffer = await azureResponse.arrayBuffer();
