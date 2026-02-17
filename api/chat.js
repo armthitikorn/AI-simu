@@ -7,7 +7,7 @@ export default async function handler(req, res) {
         if (isEnding) {
             const evalPrompt = `คุณคือหัวหน้าเทรนเนอร์ Telesales มืออาชีพ จงประเมินบทสนทนานี้เป็น JSON: 
             {"score": 0-100, "strengths": "จุดเด่น", "weaknesses": "จุดที่ต้องแก้", "tone_feedback": "วิเคราะห์น้ำเสียง"}
-            เกณฑ์: คปภ. (ชื่อ/ใบอนุญาต/อัดเสียง), ความสุภาพ, การแก้ปัญหา`;
+            เกณฑ์: คปภ. (ชื่อ/ใบอนุญาต/อัดเสียง), ความสุภาพ, การแก้ปัญหา โดยวิเคราะห์จากประวัติการสนทนาที่ได้รับ`;
 
             const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
             const gRes = await fetch(gUrl, {
@@ -16,7 +16,10 @@ export default async function handler(req, res) {
                 body: JSON.stringify({
                     contents: history,
                     system_instruction: { parts: [{ text: evalPrompt }] },
-                    generationConfig: { response_mime_type: "application/json" }
+                    generationConfig: { 
+                        response_mime_type: "application/json",
+                        temperature: 0.2 // โหมดประเมินผลต้องการความแม่นยำสูง (ค่าน้อย)
+                    }
                 })
             });
             const gData = await gRes.json();
@@ -32,8 +35,14 @@ export default async function handler(req, res) {
         };
 
         const char = charConfig[level] || charConfig["1"];
+        
+        // ✨ ปรับปรุง Prompt ให้เด็ดขาดเรื่องภาษาและคำซ้ำ
         const systemPrompt = `คุณคือ ${char.name} (${char.role}) เป็นเพศ ${char.gender === 'male' ? 'ชาย (ครับ)' : 'หญิง (ค่ะ/คะ)'} 
-        ห้ามใช้คำลงท้ายผิดเพศ, ห้ามใส่ข้อความในวงเล็บ, ตอบเป็นประโยคที่คนจริงๆ พูดตามบุคลิก ${char.role}`;
+        กฎเหล็ก:
+        1. สนทนาเป็น "ภาษาไทย" เท่านั้น ห้ามตอบเป็นภาษาอังกฤษไม่ว่ากรณีใดๆ
+        2. ห้ามใช้คำพูดหรือประโยคเดิมซ้ำๆ ให้โต้ตอบอย่างเป็นธรรมชาติและมีชีวิตชีวา
+        3. ห้ามใช้คำลงท้ายผิดเพศ และห้ามใส่สัญลักษณ์หรือข้อความในวงเล็บ
+        4. หากไม่เข้าใจสิ่งที่พนักงานพูด ให้ถามกลับแบบลูกค้าจริงๆ ไม่ใช่ถามแบบหุ่นยนต์`;
 
         const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
         const gRes = await fetch(gUrl, {
@@ -41,7 +50,14 @@ export default async function handler(req, res) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: (history || []).concat([{ role: "user", parts: [{ text: message }] }]),
-                system_instruction: { parts: [{ text: systemPrompt }] }
+                system_instruction: { parts: [{ text: systemPrompt }] },
+                // ⚙️ เพิ่มการตั้งค่าเพื่อลดคำซ้ำและเพิ่มความฉลาด
+                generationConfig: {
+                    temperature: 0.9,    // เพิ่มความเป็นมนุษย์และความหลากหลาย (0.7-1.0 คือค่าที่เหมาะสม)
+                    topP: 0.95,
+                    topK: 40,
+                    maxOutputTokens: 256
+                }
             })
         });
 
@@ -55,7 +71,7 @@ export default async function handler(req, res) {
 
         const azRes = await fetch(`https://${process.env.AZURE_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`, {
             method: 'POST',
-            headers: { 'Ocp-Apim-Subscription-Key': process.env.AZURE_API_KEY, 'Content-Type': 'application/ssml+xml', 'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3' },
+            headers: { 'Ocp-Apim-Subscription-Key': azureKey, 'Content-Type': 'application/ssml+xml', 'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3' },
             body: `<speak version='1.0' xml:lang='th-TH'><voice xml:lang='th-TH' name='${char.voice}'><prosody rate="${char.rate}" pitch="${char.pitch}">${cleanText}</prosody></voice></speak>`
         });
 
