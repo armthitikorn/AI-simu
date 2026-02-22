@@ -14,20 +14,23 @@
     </style>
 </head>
 <body class="flex flex-col h-screen overflow-hidden">
+
     <div id="welcome-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900 text-white p-6 text-center">
         <div class="max-w-sm">
             <h1 class="text-4xl font-bold mb-4 text-blue-400 uppercase tracking-widest">Exam Mode</h1>
-            <p class="mb-10 text-slate-400">ระบบฝึกฝนการขายและประเมินผล 17 ข้อ</p>
-            <button id="start-btn" class="bg-blue-600 hover:bg-blue-500 text-white w-full py-5 rounded-full text-2xl font-bold transition-all active:scale-95">เริ่มบททดสอบ</button>
+            <p class="mb-10 text-slate-400">ระบบฝึกฝนการขายและประเมินผล 17 ข้อ<br>กรุณาเปิดเสียงโทรศัพท์ของท่าน</p>
+            <button id="start-btn" class="bg-blue-600 hover:bg-blue-500 text-white w-full py-5 rounded-full text-2xl font-bold shadow-2xl transition-all active:scale-95">
+                เริ่มบททดสอบ
+            </button>
         </div>
     </div>
 
     <header class="p-4 bg-white border-b flex justify-between items-center shadow-md z-10">
         <div class="flex items-center gap-3">
-            <div id="avatar" class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold transition-colors">P</div>
+            <div id="avatar" class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold transition-all duration-300">P</div>
             <div>
                 <h2 id="display-name" class="font-bold text-slate-800 text-sm">คุณเปรมวดี</h2>
-                <span class="text-[10px] text-green-500 font-bold uppercase">Live Session</span>
+                <span class="text-[10px] text-green-500 font-bold uppercase tracking-widest">Live Session</span>
             </div>
         </div>
         <div class="flex flex-col gap-1 items-end">
@@ -37,19 +40,42 @@
                 <option value="3">Level 3: คุณฤทัย (สายเหวี่ยง)</option>
                 <option value="4">Level 4: คุณฐิติกร (บิ๊กบอส)</option>
             </select>
-            <button id="end-call-btn" class="bg-red-500 text-white px-3 py-1 rounded text-[10px] font-bold uppercase">จบการสนทนา</button>
+            <button id="end-call-btn" class="bg-red-500 text-white px-3 py-1 rounded text-[10px] font-bold uppercase shadow-sm">จบการสนทนา</button>
         </div>
     </header>
 
     <main id="chat-window" class="chat-area overflow-y-auto p-4 flex flex-col gap-4"></main>
 
     <footer class="p-6 bg-white border-t flex flex-col items-center gap-2 shadow-inner">
-        <button id="mic-btn" class="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl transition-all active:scale-90">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+        <button id="mic-btn" class="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl transition-all active:scale-90 touch-none">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
         </button>
         <p id="instruction" class="text-slate-400 text-xs">แตะไมค์แล้วเริ่มพูด</p>
         <div id="user-transcript" class="text-blue-500 text-[10px] italic h-4 overflow-hidden text-center"></div>
     </footer>
+
+    <div id="eval-modal" class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-slate-900/95 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div id="result-header" class="p-6 text-center text-white bg-blue-600">
+                <h3 class="text-2xl font-bold">ผลการทดสอบ (Exam Result)</h3>
+                <p id="pass-fail-text" class="text-xs font-bold mt-1 bg-white/20 px-4 py-1 rounded-full inline-block uppercase"></p>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6 space-y-4">
+                <div class="flex justify-center">
+                    <div class="w-24 h-24 rounded-full border-4 border-slate-100 flex flex-col items-center justify-center bg-blue-50">
+                        <span id="score-val" class="text-3xl font-black text-blue-600">0</span>
+                        <p class="text-[8px] text-blue-400 font-bold uppercase tracking-widest">Score / 85</p>
+                    </div>
+                </div>
+                <div id="eval-details" class="space-y-3"></div>
+            </div>
+            <div class="p-4 bg-slate-50 border-t flex justify-center">
+                <button onclick="location.reload()" class="bg-slate-900 text-white px-10 py-3 rounded-full font-bold shadow-lg">ฝึกใหม่อีกครั้ง</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         const chatWindow = document.getElementById('chat-window');
@@ -59,20 +85,23 @@
         const levelSelect = document.getElementById('level-select');
         const displayName = document.getElementById('display-name');
         const avatar = document.getElementById('avatar');
-        
-        // ข้อมูล UI ของแต่ละตัวละคร
+        const endCallBtn = document.getElementById('end-call-btn');
+        const welcomeScreen = document.getElementById('welcome-screen');
+
+        // --- เพิ่มข้อมูล UI ของตัวละคร ---
         const charData = {
-            "1": { name: "คุณเปรมวดี", initial: "P", color: "bg-blue-600" },
-            "2": { name: "คุณสมเกียรติ", initial: "S", color: "bg-slate-700" },
-            "3": { name: "คุณฤทัย", initial: "R", color: "bg-pink-600" },
-            "4": { name: "คุณฐิติกร", initial: "T", color: "bg-amber-600" }
+            "1": { name: "คุณเปรมวดี", initial: "P", color: "bg-blue-600", intro: "ฮัลโหลค่ะ... สวัสดีค่ะ? เปรมวดีพูดสายอยู่ค่ะ" },
+            "2": { name: "คุณสมเกียรติ", initial: "S", color: "bg-slate-700", intro: "ครับ สวัสดีครับ สมเกียรติรับสายครับ ไม่ทราบว่าติดต่อเรื่องอะไรครับ?" },
+            "3": { name: "คุณฤทัย", initial: "R", color: "bg-pink-600", intro: "ฮัลโหล! ใครคะเนี่ย? ฤทัยรับสายค่ะ พอดีรีบอยู่มีอะไรไหมคะ?" },
+            "4": { name: "คุณฐิติกร", initial: "T", color: "bg-amber-600", intro: "สวัสดีครับ ฐิติกรพูดสายครับ มีเวลาให้ 2 นาทีนะครับ" }
         };
 
         let history = [];
+        let recognition;
         let isProcessing = false;
         const audioPlayer = new Audio();
 
-        // ฟังก์ชันเปลี่ยนชื่อลูกค้าบนหน้าจอ
+        // --- ฟังก์ชันอัปเดตชื่อบนหน้าจอ ---
         function updateCustomerUI(level) {
             const char = charData[level] || charData["1"];
             displayName.innerText = char.name;
@@ -80,22 +109,47 @@
             avatar.className = `w-10 h-10 rounded-full flex items-center justify-center text-white font-bold transition-all ${char.color}`;
         }
 
-        // เมื่อเปลี่ยน Level
+        // --- เมื่อเปลี่ยนเลเวล ให้ล้างแชทและอัปเดตชื่อทันที ---
         levelSelect.addEventListener('change', (e) => {
-            updateCustomerUI(e.target.value);
-            history = []; // ล้างประวัติเพื่อเริ่มคุยกับคนใหม่
+            const level = e.target.value;
+            updateCustomerUI(level);
+            history = [];
             chatWindow.innerHTML = '';
-            appendMessage('bot', `ระบบเชื่อมต่อสายกับ ${charData[e.target.value].name} แล้วค่ะ...`);
+            appendMessage('bot', `เชื่อมต่อสายกับ ${charData[level].name} แล้วค่ะ...`);
         });
 
-        // Speech Recognition (ส่วนเดิมของคุณ)
-        // ... (ใส่ Logic webkitSpeechRecognition ของเดิมที่นี่)
+        // Recognition Logic (คงเดิม)
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.lang = 'th-TH';
+            recognition.interimResults = true;
+            recognition.onstart = () => { micBtn.classList.add('mic-active'); instruction.innerText = "กำลังฟัง..."; };
+            recognition.onresult = (event) => {
+                const text = event.results[0][0].transcript;
+                userTranscript.innerText = `พูดว่า: ${text}`;
+                if (event.results[0].isFinal && !isProcessing) {
+                    isProcessing = true;
+                    sendToAI(text);
+                }
+            };
+            recognition.onend = () => { micBtn.classList.remove('mic-active'); instruction.innerText = "แตะไมค์เพื่อพูดต่อ"; isProcessing = false; };
+        }
 
         document.getElementById('start-btn').addEventListener('click', () => {
+            const char = charData[levelSelect.value];
             updateCustomerUI(levelSelect.value);
-            welcomeScreen.classList.add('hidden');
-            appendMessage('bot', `ฮัลโหลค่ะ... สวัสดีค่ะ? (${charData[levelSelect.value].name} พูดสายค่ะ)`);
+            audioPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==";
+            audioPlayer.play().then(() => {
+                welcomeScreen.classList.add('hidden');
+                appendMessage('bot', char.intro);
+            }).catch(() => {
+                welcomeScreen.classList.add('hidden');
+                appendMessage('bot', char.intro);
+            });
         });
+
+        micBtn.addEventListener('click', () => { if(recognition) try { recognition.start(); } catch(e) {} });
 
         function appendMessage(role, text) {
             const div = document.createElement('div');
@@ -116,9 +170,9 @@
                 });
                 const data = await res.json();
                 
-                // อัปเดตชื่อจาก API เพื่อความชัวร์
+                // --- อัปเดตชื่อจาก API ถ้ามีการส่งมา ---
                 if (data.customerName) displayName.innerText = data.customerName;
-
+                
                 appendMessage('bot', data.text);
                 history.push({ role: "user", parts: [{ text: message }] });
                 history.push({ role: "model", parts: [{ text: data.text }] });
@@ -127,13 +181,47 @@
                     audioPlayer.src = `data:audio/mp3;base64,${data.audio}`;
                     audioPlayer.play();
                 }
+
+                if (data.forceDisconnect) {
+                    setTimeout(() => { alert("สายหลุดเนื่องจาก: " + data.text); location.reload(); }, 3000);
+                }
             } catch (e) { alert("เกิดข้อผิดพลาดในการเชื่อมต่อ"); }
             finally { isProcessing = false; }
         }
 
-        // (ปุ่ม End Call และส่วนประเมินผล เหมือนเดิมของคุณ)
-    </script>
-</body>
+        // End Call Logic (คงเดิม)
+        endCallBtn.addEventListener('click', async () => {
+            if (history.length < 2) return alert("ยังไม่ได้เริ่มการสนทนาเลยค่ะ");
+            endCallBtn.innerText = "กำลังประเมิน...";
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ history, isEnding: true })
+                });
+                const data = await res.json();
+                const evalData = data.evaluation;
+                const score = evalData.score;
+
+                document.getElementById('eval-modal').classList.remove('hidden');
+                document.getElementById('result-header').className = `p-6 text-center text-white ${score >= 50 ? 'bg-green-600' : 'bg-red-600'}`;
+                document.getElementById('pass-fail-text').innerText = score >= 50 ? 'ผ่านเกณฑ์ (PASS)' : 'ไม่ผ่านเกณฑ์ (FAIL)';
+                document.getElementById('score-val').innerText = score;
+
+                let breakdownHTML = `<div class="bg-slate-50 p-3 rounded-xl text-[11px] border space-y-1">`;
+                evalData.detail_breakdown.forEach(item => {
+                    breakdownHTML += `<div class="flex justify-between border-b pb-1"><span>${item.topic}</span><span class="font-bold text-blue-600">${item.stars} ⭐</span></div>`;
+                });
+                breakdownHTML += `</div>`;
+                
+                document.getElementById('eval-details').innerHTML = `
+                    ${breakdownHTML}
+                    <div class="p-3 bg-green-50 rounded-lg border-l-4 border-green-500 text-[11px]"><p class="font-bold text-green-700">จุดแข็ง:</p><p>${evalData.strengths}</p></div>
+                    <div class="p-3 bg-red-50 rounded-lg border-l-4 border-red-500 text-[11px]"><p class="font-bold text-red-700">จุดที่ควรปรับปรุง:</p><p>${evalData.weaknesses}</p></div>
+                `;
+            } catch (e) { alert("ระบบประเมินผลขัดข้อง"); }
+            finally { endCallBtn.innerText = "จบการสนทนา"; }
+        });
     </script>
 </body>
 </html>
