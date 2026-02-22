@@ -36,12 +36,12 @@ export default async function handler(req, res) {
         // --- 3. ตั้งค่าตัวละครแบบ Human-Like (เพิ่มรายละเอียดนิสัย) ---
         const charConfig = {
             "1": { 
-                name: "คุณเปรมวดี", voice: "th-TH-PremwadeeNeural", rate: "0.82", pitch: "-2%", gender: "female", 
+                name: "คุณเปรมวดี", voice: "th-TH-PremwadeeNeural", rate: "0.88", pitch: "-1%", gender: "female", 
                 role: "คนปกติที่กำลังยุ่ง ไม่รู้ว่าจะโดนขายประกัน ใจดีแต่มีขอบเขต",
                 style: "พูดจานุ่มนวล ชอบใช้คำเชื่อม 'อ๋อ ค่ะ', 'เอ่อ...พอดีว่า', 'ไม่ทราบว่าจากที่ไหนนะคะ' เน้นความสุภาพแต่ชัดเจน"
             },
             "2": { 
-                name: "คุณสมเกียรติ", voice: "th-TH-NiwatNeural", rate: "0.85", pitch: "0%", gender: "male", 
+                name: "คุณสมเกียรติ", voice: "th-TH-NiwatNeural", rate: "0.88", pitch: "0%", gender: "male", 
                 role: "พนักงานออฟฟิศ เน้นเหตุผล ขี้สงสัย ไม่ชอบคนพูดรัวๆ",
                 style: "พูดจาเป็นงานเป็นการ ชอบถามย้อนกลับ 'ครับผม แล้วยังไงต่อครับ?', 'ไม่ทราบว่าชื่ออะไรนะครับ?'"
             },
