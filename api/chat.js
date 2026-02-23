@@ -56,7 +56,7 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 contents: (history || []).concat([{ role: "user", parts: [{ text: message }] }]),
                 system_instruction: { parts: [{ text: systemPrompt }] },
-                generationConfig: { temperature: 0.8, max_output_tokens: 150 }
+                generationConfig: { temperature: 0.8, max_output_tokens: 250 }
             })
         });
 
