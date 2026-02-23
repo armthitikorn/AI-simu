@@ -1,87 +1,94 @@
-// api/chat.js
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+    if (req.method !== 'POST') return res.status(405).json({ error: "Method not allowed" });
 
-  const { message = "", history = [], level = "1" } = req.body;
-  
-  // 🔍 จุดเช็ก 1: ตรวจสอบ Key (ถ้าไม่มีให้หยุดทำงานทันทีพร้อมบอกเหตุผล)
-  const apiKey = process.env.GEMINI_API_KEY;
-  const azureKey = process.env.AZURE_API_KEY;
-  const azureRegion = process.env.AZURE_REGION || "southeastasia";
+    const { message, history, level, isEnding } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+    const azureKey = process.env.AZURE_API_KEY;
+    const azureRegion = process.env.AZURE_REGION || 'southeastasia';
 
-  if (!apiKey || !azureKey) {
-    console.error("❌ API Keys Missing! ตรวจสอบไฟล์ .env.local ของคุณ");
-    return res.status(500).json({ error: "Configuration Error: API Keys are missing." });
-  }
+    try {
+        const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-  try {
-    // ฟังก์ชันป้องกัน SSML พัง (ช่วยให้เสียงไม่ขาดหาย)
-    const escapeXml = (unsafe) => unsafe.replace(/[<>&"']/g, (c) => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":"&apos;"}[c]));
+        // --- 1. โหมดประเมินผล 17 ข้อ ---
+        if (isEnding) {
+            const evalPrompt = `คุณคือหัวหน้าเทรนเนอร์ Telesales มืออาชีพ ประเมินบทสนทนาตามเกณฑ์ 17 ข้อ (ชื่อ-สกุล, ใบอนุญาต, บริษัท, ขออัดเสียง, บทเชื่อมโยง, ผลประโยชน์, เบี้ย, มูลค่ากรมธรรม์, ภาษี, ตอบข้อโต้แย้ง, ชำระเงิน, ปิดการขาย3ครั้ง, สคริปต์รวม, น้ำเสียง, คุมสถานการณ์, ไหวพริบ, ศักยภาพ)
+            ตอบเป็น JSON เท่านั้น: {"score": 0-85, "strengths": "...", "weaknesses": "...", "detail_breakdown": [{"topic": "...", "stars": 0-5}]}`;
 
-    const charConfig = {
-      "1": { name: "คุณเปรมวดี", voice: "th-TH-PremwadeeNeural", rate: "1.0", trait: "ใจดีแต่ยุ่ง" },
-      "2": { name: "คุณสมเกียรติ", voice: "th-TH-NiwatNeural", rate: "0.95", trait: "เข้มงวด ขี้สงสัย" },
-      "3": { name: "น้องฟ้า", voice: "th-TH-AcharaNeural", rate: "1.05", trait: "คุณแม่ลูกอ่อนรีบๆ" },
-      "4": { name: "คุณอิทธิพล", voice: "th-TH-NiwatNeural", rate: "0.9", trait: "ผู้บริหารนิ่งๆ" },
-      "5": { name: "อาม่ากิมฮวย", voice: "th-TH-AcharaNeural", rate: "0.85", trait: "อาม่าใจดีขี้เหงา" }
-    };
-    const char = charConfig[level] || charConfig["1"];
+            const gRes = await fetch(gUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: history,
+                    system_instruction: { parts: [{ text: evalPrompt }] },
+                    generationConfig: { response_mime_type: "application/json", temperature: 0.1 }
+                })
+            });
+            const gData = await gRes.json();
+            return res.status(200).json({ evaluation: JSON.parse(gData.candidates[0].content.parts[0].text) });
+        }
 
-    // 🤖 จุดเช็ก 2: เรียก Gemini (ใช้ 1.5-flash เพื่อความเสถียรสูงสุด)
-    const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    
-    const gRes = await fetch(gUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: history.slice(-6).concat([{ role: "user", parts: [{ text: message }] }]),
-        system_instruction: { 
-          parts: [{ text: `คุณคือ ${char.name}. นิสัย: ${char.trait}. กฎสำคัญ: 1.พูดเป็นภาษาไทยเท่านั้น 2.ห้ามใช้วงเล็บ 3.ต้องจบประโยคให้สมบูรณ์พร้อมหางเสียง (ครับ/ค่ะ) ทุกครั้ง 4.พูด 3-5 ประโยค` }] 
-        },
-        generationConfig: { temperature: 0.7, max_output_tokens: 800 }
-      })
-    });
+        // --- 2. ระบบสกัดกั้นคำไม่สุภาพ ---
+        const forbiddenWords = ['วะ', 'โว้ย', 'มึง', 'กู', 'ไอ้', 'ควย', 'ห่วย', 'กระจอก'];
+        if (message && forbiddenWords.some(word => message.includes(word))) {
+            const angryText = "ขอโทษนะคะ ถ้าพูดจาไม่สุภาพแบบนี้ ดิฉันขออนุญาตวางสายทันทีค่ะ!";
+            return res.status(200).json({ text: angryText, forceDisconnect: true });
+        }
 
-    const gData = await gRes.json();
-    
-    // ถ้า Gemini ส่ง Error กลับมา ให้เราเห็นที่หน้าจอ
-    if (gData.error) {
-      console.error("Gemini API Error:", gData.error.message);
-      return res.status(500).json({ error: gData.error.message });
+        // --- 3. โหมดลูกค้าสมจริง (ลบวงเล็บ + คุมภาษา) ---
+        const charConfig = {
+            "1": { name: "คุณเปรมวดี", voice: "th-TH-PremwadeeNeural", rate: "0.82", pitch: "-2%", gender: "female", role: "คนปกติที่กำลังยุ่ง ไม่รู้ว่าจะโดนขายประกัน ใจดีแต่มีขอบเขต" },
+            "2": { name: "คุณสมเกียรติ", voice: "th-TH-NiwatNeural", rate: "0.85", pitch: "0%", gender: "male", role: "พนักงานออฟฟิศ เน้นเหตุผล ขี้สงสัย ไม่ชอบคนพูดรัวๆ" },
+            "3": { name: "คุณฤทัย", voice: "th-TH-AcharaNeural", rate: "1.0", pitch: "+2%", gender: "female", role: "แม่บ้านใจร้อน ยุ่งอยู่กับลูก ถ้าพนักงานพูดไม่รู้เรื่องจะวางสาย" },
+            "4": { name: "คุณฐิติกร", voice: "th-TH-NiwatNeural", rate: "0.82", pitch: "-10%", gender: "male", role: "ผู้บริหารระดับสูง สุขุม มีเวลาให้แค่ 2 นาทีเท่านั้น" }
+        };
+
+        const char = charConfig[level] || charConfig["1"];
+        const systemPrompt = `คุณคือ ${char.name} (${char.role}). 
+        กฎเหล็ก:
+        1. ตอบเป็นภาษาไทยเท่านั้น ห้ามใช้ภาษาอังกฤษ
+        2. ห้ามเขียนคำอธิบายท่าทางในวงเล็บเด็ดขาด เช่น (ยิ้ม), (ถอนหายใจ) ห้ามใส่มา!
+        3. คุณไม่รู้ว่านี่คือการขายประกัน ให้เริ่มจากความสงสัยเสมอ
+        4. ลงท้ายด้วย ${char.gender === 'male' ? 'ครับ' : 'ค่ะ/คะ'} ให้สมจริงตามเพศคุณ`;
+
+        const gRes = await fetch(gUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: (history || []).concat([{ role: "user", parts: [{ text: message }] }]),
+                system_instruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: { temperature: 0.8, max_output_tokens: 150 }
+            })
+        });
+
+        const gData = await gRes.json();
+        let aiText = gData.candidates[0].content.parts[0].text;
+
+        // --- 🛡️ ฟังก์ชันลบวงเล็บทุกรูปแบบก่อนส่งไปอ่าน ---
+        let cleanText = aiText
+            .replace(/\(.*?\)/g, '')  // ลบ (...)
+            .replace(/\[.*?\]/g, '')  // ลบ [...]
+            .replace(/[*#_]/g, '')    // ลบ Markdown
+            .trim();
+
+        // --- 🔊 Azure TTS ---
+        const azRes = await fetch(`https://${azureRegion}.tts.speech.microsoft.com/cognitiveservices/v1`, {
+            method: 'POST',
+            headers: { 
+                'Ocp-Apim-Subscription-Key': azureKey, 
+                'Content-Type': 'application/ssml+xml', 
+                'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3' 
+            },
+            body: `<speak version='1.0' xml:lang='th-TH'><voice xml:lang='th-TH' name='${char.voice}'><prosody rate="${char.rate}" pitch="${char.pitch}">${cleanText}</prosody></voice></speak>`
+        });
+
+        const audioBuffer = await azRes.arrayBuffer();
+        res.status(200).json({ 
+            text: cleanText, 
+            audio: Buffer.from(audioBuffer).toString('base64') 
+        });
+
+    } catch (e) { 
+        console.error(e);
+        res.status(500).json({ error: e.message }); 
     }
-
-    const aiText = gData.candidates[0].content.parts[0].text.trim();
-
-    // 🔊 จุดเช็ก 3: Azure TTS
-    const ssml = `
-      <speak version='1.0' xml:lang='th-TH'>
-        <voice name='${char.voice}'>
-          <prosody rate='${char.rate}'>${escapeXml(aiText)}</prosody>
-        </voice>
-      </speak>`;
-
-    const azRes = await fetch(`https://${azureRegion}.tts.speech.microsoft.com/cognitiveservices/v1`, {
-      method: "POST",
-      headers: {
-        "Ocp-Apim-Subscription-Key": azureKey,
-        "Content-Type": "application/ssml+xml",
-        "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3",
-      },
-      body: ssml
-    });
-
-    if (!azRes.ok) throw new Error("Azure TTS Failed");
-
-    const audioBuffer = await azRes.arrayBuffer();
-
-    return res.status(200).json({
-      text: aiText,
-      audio: Buffer.from(audioBuffer).toString("base64"),
-      character: char.name
-    });
-
-  } catch (err) {
-    console.error("❌ SERVER ERROR:", err.message);
-    return res.status(500).json({ error: "Server error", details: err.message });
-  }
-}
+              }
