@@ -7,49 +7,78 @@ export default async function handler(req, res) {
   const azureRegion = process.env.AZURE_REGION || "southeastasia";
 
   try {
-    // ฟังก์ชันช่วยจัดการตัวอักษรพิเศษ ป้องกัน SSML พัง
-    const escapeXml = (unsafe) => {
-      return unsafe.replace(/[<>&"']/g, (c) => {
-        switch (c) {
-          case '<': return '&lt;';
-          case '>': return '&gt;';
-          case '&': return '&amp;';
-          case '"': return '&quot;';
-          case "'": return '&apos;';
-          default: return c;
-        }
-      });
-    };
+    // ---------------------------------------------------------
+    // 1. นวัตกรรมใหม่: ระบบวิเคราะห์ความสมจริง (Utility)
+    // ---------------------------------------------------------
+    const getThaiLength = (t) => t.replace(/\s/g, "").length;
 
     const addAdvancedSSML = (text) => {
-      let safeText = escapeXml(text);
-      return safeText
-        .replace(/([?!\.])/g, `$1<break time="300ms"/>`)
-        .replace(/(ครับ|ค่ะ|คะ|นะครับ|นะคะ)/g, `$1<break time="180ms"/>`)
-        .replace(/(เอ่อ|คือว่า|อืม|อ๋อ)/g, `<prosody pitch="-5%">$1</prosody><break time="150ms"/>`);
+      return text
+        .replace(/([?!\.])\s*/g, `$1<break time="300ms"/>`) // จบประโยคคำถาม/ตกใจ พักนานขึ้น
+        .replace(/(ครับ|ค่ะ|คะ|นะครับ|นะคะ)/g, `$1<break time="150ms"/>`) // หางเสียง
+        .replace(/(เอ่อ|คือว่า|อืม|อ๋อ)/g, `<prosody pitch="-5%">$1</prosody><break time="100ms"/>`); // คำสร้อย
     };
 
+    // ---------------------------------------------------------
+    // 2. ข้อมูลลูกค้า 5 สไตล์ (Human-Centric Personas)
+    // ---------------------------------------------------------
     const charConfig = {
-      "1": { name: "คุณเปรมวดี", role: "พนักงานบริษัทวัยกลางคน", trait: "ใจดี สุภาพ แต่ยุ่งมาก ชอบพูดแทรกว่า 'ค่ะๆ ฟังอยู่ค่ะ' แต่ในใจอยากวางสาย", voice: "th-TH-PremwadeeNeural", rate: "1.0", pitch: "0%" },
-      "2": { name: "คุณสมเกียรติ", role: "เจ้าของธุรกิจขี้ระแวง", trait: "เน้นตัวเลข พูดจาโผงผาง ชอบถามจี้จุด และขี้รำคาญคนพูดอ้อมค้อม", voice: "th-TH-NiwatNeural", rate: "0.95", pitch: "-3%" },
-      "3": { name: "น้องฟ้า", role: "คุณแม่ลูกอ่อนสุดสตรอง", trait: "เสียงเหนื่อยๆ มีภาระเยอะ จะตัดบททันทีถ้าคนขายพูดไม่เข้าเรื่อง", voice: "th-TH-AcharaNeural", rate: "1.05", pitch: "+2%" },
-      "4": { name: "คุณอิทธิพล", role: "ผู้บริหารระดับสูง", trait: "นิ่ง สุขุม พูดน้อยแต่ถามกลับแรงๆ ชอบเปรียบเทียบผลประโยชน์", voice: "th-TH-NiwatNeural", rate: "0.85", pitch: "-8%" },
-      "5": { name: "อาม่ากิมฮวย", role: "ผู้สูงอายุใจดีขี้เหงา", trait: "พูดช้า หูไม่ค่อยดี ชอบเล่าเรื่องลูกหลานสลับกับเรื่องประกัน", voice: "th-TH-AcharaNeural", rate: "0.80", pitch: "-5%" }
+      "1": {
+        name: "คุณเปรมวดี",
+        role: "พนักงานบริษัทวัยกลางคน",
+        trait: "ใจดี สุภาพ แต่ยุ่งมาก ชอบพูดแทรกว่า 'ค่ะๆ ฟังอยู่ค่ะ' แต่ในใจอยากวางสาย",
+        voice: "th-TH-PremwadeeNeural", rate: "1.0", pitch: "0%"
+      },
+      "2": {
+        name: "คุณสมเกียรติ",
+        role: "เจ้าของธุรกิจขี้ระแวง",
+        trait: "เน้นตัวเลข พูดจาโผงผาง ชอบถามว่า 'เอาเบอร์ผมมาจากไหน?' และ 'สรุปสั้นๆ ได้ไหม?'",
+        voice: "th-TH-NiwatNeural", rate: "0.95", pitch: "-3%"
+      },
+      "3": {
+        name: "น้องฟ้า",
+        role: "คุณแม่ลูกอ่อนสุดสตรอง",
+        trait: "เสียงเหนื่อยๆ มีเสียงลูกร้องแทรก (สมมติ) จะหงุดหงิดถ้าคนขายพูดสคริปต์ยาวโดยไม่ฟังเธอ",
+        voice: "th-TH-AcharaNeural", rate: "1.05", pitch: "+2%"
+      },
+      "4": {
+        name: "คุณอิทธิพล",
+        role: "ผู้บริหารระดับสูง",
+        trait: "นิ่ง สุขุม พูดน้อยแต่หนักแน่น ชอบถามกลับว่า 'สิทธิประโยชน์นี้ต่างจากเจ้าเดิมยังไง?'",
+        voice: "th-TH-NiwatNeural", rate: "0.85", pitch: "-8%"
+      },
+      "5": {
+        name: "อาม่ากิมฮวย",
+        role: "ผู้สูงอายุใจดีขี้เหงา",
+        trait: "พูดช้า ชอบเล่าเรื่องอื่นแทรก ถามซ้ำเพราะหูไม่ดี เป็นโจทย์หินเรื่องการดึงกลับเข้าเรื่องประกัน",
+        voice: "th-TH-AcharaNeural", rate: "0.80", pitch: "-5%"
+      }
     };
 
     const char = charConfig[String(level)] || charConfig["1"];
 
+    // ---------------------------------------------------------
+    // 3. System Prompt (The Master Logic)
+    // ---------------------------------------------------------
     const systemPrompt = `
-คุณคือ ${char.name} (${char.role}) นิสัย: ${char.trait}
-กฎเหล็ก (Strict Rules):
-1. **ต้องพูดให้จบประโยค**: ห้ามหยุดพูดกลางคันเด็ดขาด ต้องจบความคิดให้สมบูรณ์
-2. **หางเสียง**: ต้องมีหางเสียง (ครับ/ค่ะ) ปิดท้ายประโยคสุดท้ายเสมอ
-3. **ความเป็นมนุษย์**: ใช้คำเชื่อมแบบคนจริงๆ เช่น "คือว่า...", "เอ่อ...พอดี..." ให้ดูเป็นธรรมชาติ
-4. **ห้ามใช้วงเล็บ**: ห้ามใส่ท่าทางในวงเล็บเด็ดขาด ให้สื่อสารผ่านคำพูดเท่านั้น
-5. **ห้ามภาษาอังกฤษ**: ใช้ภาษาไทย 100% 
-6. **ความยาว**: ตอบประมาณ 3-5 ประโยคเพื่อให้การสนทนามีเนื้อหาเพียงพอ
+คุณคือ ${char.name} ผู้รับสายโทรศัพท์ (${char.role})
+นิสัยและอารมณ์: ${char.trait}
+
+ภารกิจของคุณ: ตอบโต้กับพนักงานขายประกันให้สมจริงที่สุด
+กฎเหล็กที่ต้องปฏิบัติ (Strict Human Protocol):
+1. **กระบวนการคิด (Inner Thought)**: ก่อนตอบ ให้ประเมินว่าพนักงานขาย "พูดดีไหม" "น่ารำคาญไหม" แล้วแสดงออกผ่านน้ำเสียง
+2. **ความเป็นมนุษย์**: ห้ามตอบเป็นหุ่นยนต์ ให้มีคำสร้อย เช่น "เอ่อ...", "อ๋อ...พอดีว่า", "อืม...อันนี้ไม่แน่ใจ"
+3. **การจบประโยค**: ต้องจบประโยคให้สมบูรณ์พร้อมหางเสียง ${char.name.includes("คุณ") ? "ครับ/ค่ะ" : "คะ/ค่ะ"} เสมอ
+4. **ห้ามใช้วงเล็บ**: ห้ามใส่ (หัวเราะ) หรือ [ถอนหายใจ] ให้ใช้คำพูดบรรยายอารมณ์แทน เช่น "เห้อ...คือตอนนี้รีบจริงๆ ค่ะ"
+5. **การโต้ตอบ**: ต้องมีทั้งส่วนที่ "ตอบรับ" และ "ถามกลับ" เพื่อให้คนขายได้ฝึกต่อยอด
+6. **ความยาว**: ต้องพูดอย่างน้อย 3-5 ประโยคเพื่อให้เสียง TTS มีจังหวะที่เป็นธรรมชาติ
+
+รูปแบบการตอบ: ภาษาไทยปกติที่คนคุยโทรศัพท์กัน ห้ามมีภาษาอังกฤษเด็ดขาด
 `;
 
+    // ---------------------------------------------------------
+    // 4. Gemini 3 Flash API Call
+    // ---------------------------------------------------------
     const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${apiKey}`;
 
     const gRes = await fetch(gUrl, {
@@ -59,10 +88,10 @@ export default async function handler(req, res) {
         contents: history.slice(-10).concat([{ role: "user", parts: [{ text: message }] }]),
         system_instruction: { parts: [{ text: systemPrompt }] },
         generationConfig: {
-          temperature: 0.8,
+          temperature: 0.75, // ความสมดุลระหว่างความนิ่งและความคิดสร้างสรรค์
           top_p: 0.95,
-          max_output_tokens: 1024, // เพิ่ม Token ให้เพียงพอสำหรับการจบประโยค
-          // ลบ stop_sequences ออกเพื่อป้องกันการตัดคำก่อนกำหนด
+          max_output_tokens: 1000,
+          stop_sequences: ["\n\n"]
         },
         safetySettings: [
           { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
@@ -74,18 +103,20 @@ export default async function handler(req, res) {
     const gData = await gRes.json();
     let aiRaw = gData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    if (!aiRaw) throw new Error("AI No Response");
+    if (!aiRaw) throw new Error("AI Silence Error");
 
+    // ล้าง Markdown และสัญลักษณ์ที่ไม่จำเป็นออก
     const cleanText = aiRaw.replace(/[*#_`]/g, "").trim();
 
     // ---------------------------------------------------------
-    // Azure TTS
+    // 5. Azure TTS Integration (Advanced SSML)
     // ---------------------------------------------------------
+    const ssmlBody = addAdvancedSSML(cleanText);
     const ssml = `
       <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="th-TH">
         <voice name="${char.voice}">
           <prosody rate="${char.rate}" pitch="${char.pitch}">
-            ${addAdvancedSSML(cleanText)}
+            ${ssmlBody}
           </prosody>
         </voice>
       </speak>`;
@@ -99,8 +130,6 @@ export default async function handler(req, res) {
       },
       body: ssml,
     });
-
-    if (!azRes.ok) throw new Error(`Azure TTS Error: ${azRes.statusText}`);
 
     const audioBuffer = await azRes.arrayBuffer();
 
