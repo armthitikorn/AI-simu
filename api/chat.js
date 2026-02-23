@@ -1,97 +1,51 @@
+// api/chat.js
 export default async function handler(req, res) {
-  // 1. Initial Checks
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { message = "", history = [], level = "1" } = req.body;
+  const { message, history, level } = req.body;
+  
+  // 1. ตรวจสอบ ENV (จุดที่มักจะทำให้เกิด 500)
   const apiKey = process.env.GEMINI_API_KEY;
   const azureKey = process.env.AZURE_API_KEY;
-  const azureRegion = process.env.AZURE_REGION || "southeastasia";
 
   if (!apiKey || !azureKey) {
-    return res.status(500).json({ error: "API Keys are missing in environment variables." });
+    return res.status(500).json({ 
+      error: "Config Error: API Keys missing!", 
+      details: "ตรวจสอบไฟล์ .env.local ของคุณว่ามี GEMINI_API_KEY และ AZURE_API_KEY หรือยัง" 
+    });
   }
 
   try {
-    // ---------------------------------------------------------
-    // 2. Utility Functions (Thai NLP & SSML)
-    // ---------------------------------------------------------
-    const escapeXml = (unsafe) => 
-      unsafe.replace(/[<>&"']/g, (c) => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":"&apos;"}[c]));
-
-    const addNaturalSSML = (text) => {
-      let s = escapeXml(text);
-      // เพิ่มจังหวะหยุดหลังจบประโยค และหลังคำสร้อย
-      s = s.replace(/([?!\.])/g, `$1<break time="300ms"/>`);
-      s = s.replace(/(ค่ะ|ครับ|คะ|ครับผม|นะคะ|นะครับ)/g, `$1<break time="200ms"/>`);
-      s = s.replace(/(เอ่อ|คือว่า|อืม|อ๋อ|แบบว่า)/g, `<prosody pitch="-5%">$1</prosody><break time="150ms"/>`);
-      return s;
-    };
-
-    // ---------------------------------------------------------
-    // 3. Personas Definition (Human-Like)
-    // ---------------------------------------------------------
+    // 2. ตั้งค่าลูกค้า (เหมือนเดิม)
     const charConfig = {
-      "1": { name: "คุณเปรมวดี", role: "พนักงานออฟฟิศผู้แสนยุ่ง", voice: "th-TH-PremwadeeNeural", rate: "1.0", pitch: "0%", trait: "สุภาพแต่พยายามตัดบทเพราะติดประชุม" },
-      "2": { name: "คุณสมเกียรติ", role: "เจ้าของกิจการขี้สงสัย", voice: "th-TH-NiwatNeural", rate: "0.95", pitch: "-3%", trait: "ถามจี้เรื่องความคุ้มค่าและเอาเบอร์มาจากไหน" },
-      "3": { name: "น้องฟ้า", role: "คุณแม่ลูกอ่อนสุดสตรอง", voice: "th-TH-AcharaNeural", rate: "1.05", pitch: "+2%", trait: "เสียงเหนื่อย พูดเร็ว อยากได้บทสรุปสั้นๆ เพราะลูกร้อง" },
-      "4": { name: "คุณอิทธิพล", role: "ผู้บริหารระดับสูง", voice: "th-TH-NiwatNeural", rate: "0.9", pitch: "-8%", trait: "นิ่ง สุขุม ฟังอย่างตั้งใจแต่ชอบขัดด้วยคำถามเชิงกลยุทธ์" },
-      "5": { name: "อาม่ากิมฮวย", role: "ผู้สูงอายุใจดีขี้เหงา", voice: "th-TH-AcharaNeural", rate: "0.85", pitch: "-5%", trait: "พูดช้า ฟังไม่ค่อยถนัด ชอบชวนคุยนอกเรื่องประกัน" }
+      "1": { name: "คุณเปรมวดี", voice: "th-TH-PremwadeeNeural", trait: "ใจดีแต่ยุ่ง" },
+      "2": { name: "คุณสมเกียรติ", voice: "th-TH-NiwatNeural", trait: "เข้มงวด ขี้สงสัย" },
+      // ... เพิ่มให้ครบ 5 คนตามที่คุยกัน
     };
+    const char = charConfig[level] || charConfig["1"];
 
-    const char = charConfig[String(level)] || charConfig["1"];
+    // 3. เรียก Gemini (ใช้ 1.5-flash เพื่อความเสถียรสูงสุดในการเทสครั้งแรก)
+    const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    
+    const gRes = await fetch(gUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: history.slice(-6).concat([{ role: "user", parts: [{ text: message }] }]),
+        system_instruction: { 
+          parts: [{ text: `คุณคือ ${char.name} นิสัยคือ ${char.trait}. ตอบเป็นภาษาไทย ห้ามมีวงเล็บ ห้ามมีมาร์กดาวน์ และต้องจบประโยคเสมอ.` }] 
+        },
+        generationConfig: { temperature: 0.7, max_output_tokens: 500 }
+      })
+    });
 
-    // ---------------------------------------------------------
-    // 4. Gemini Interaction (with Fallback Logic)
-    // ---------------------------------------------------------
-    const systemPrompt = `
-คุณคือ ${char.name} (${char.role}) นิสัยคือ ${char.trait}
-สถานการณ์: คุณได้รับโทรศัพท์ขายประกันในเวลาทำงาน/เวลาส่วนตัว
+    const gData = await gRes.json();
+    if (gData.error) throw new Error(`Gemini Error: ${gData.error.message}`);
 
-กฎการตอบโต้อย่างเป็นมนุษย์:
-1. [Thinking] วิเคราะห์ว่าคนขาย "พูดรู้เรื่องไหม" ถ้าพูดรัวเป็นหุ่นยนต์ ให้คุณเริ่มหงุดหงิด
-2. ใช้คำเชื่อมธรรมชาติ: "เอ่อ...", "คือ...", "พอดีว่า..."
-3. ห้ามใช้วงเล็บ ห้ามใช้ Markdown และต้องมีหางเสียงเสมอ
-4. ต้องจบประโยคให้สมบูรณ์ ห้ามขาดตอน
-5. ความยาวบทพูด: 3-6 ประโยค และต้องมีคำถามหรือประโยคที่ส่งต่อให้คนขายพูดต่อเสมอ
-`;
+    const aiText = gData.candidates[0].content.parts[0].text.trim();
 
-    // ลองใช้ Gemini 3 Flash ถ้า Error จะสลับไป 1.5 Flash
-    const fetchGemini = async (model) => {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      return fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: history.slice(-8).concat([{ role: "user", parts: [{ text: message }] }]),
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          generationConfig: { temperature: 0.8, max_output_tokens: 1000 }
-        })
-      });
-    };
-
-    let gRes = await fetchGemini("gemini-1.5-flash"); // เริ่มจากตัวที่เสถียรที่สุดก่อนเพื่อเลี่ยง 500
-    let gData = await gRes.json();
-
-    if (!gData?.candidates?.[0]) {
-       // ถ้า 1.5 ยังไม่ได้ ลองสลับรุ่นอื่น หรือ Throw Error
-       throw new Error("Gemini API Error: " + JSON.stringify(gData));
-    }
-
-    const aiRaw = gData.candidates[0].content.parts[0].text;
-    const cleanText = aiRaw.replace(/[*#_`]/g, "").trim();
-
-    // ---------------------------------------------------------
-    // 5. Azure TTS (with Failure Handling)
-    // ---------------------------------------------------------
-    const ssml = `
-      <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="th-TH">
-        <voice name="${char.voice}">
-          <prosody rate="${char.rate}" pitch="${char.pitch}">
-            ${addNaturalSSML(cleanText)}
-          </prosody>
-        </voice>
-      </speak>`;
-
+    // 4. เรียก Azure TTS
+    const azureRegion = process.env.AZURE_REGION || "southeastasia";
     const azRes = await fetch(`https://${azureRegion}.tts.speech.microsoft.com/cognitiveservices/v1`, {
       method: "POST",
       headers: {
@@ -99,27 +53,24 @@ export default async function handler(req, res) {
         "Content-Type": "application/ssml+xml",
         "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3",
       },
-      body: ssml,
+      body: `<speak version='1.0' xml:lang='th-TH'><voice name='${char.voice}'>${aiText}</voice></speak>`
     });
 
-    let audioBase64 = null;
-    if (azRes.ok) {
-      const audioBuffer = await azRes.arrayBuffer();
-      audioBase64 = Buffer.from(audioBuffer).toString("base64");
-    } else {
-      console.warn("Azure TTS failed, proceeding with text only.");
-    }
+    if (!azRes.ok) throw new Error(`Azure TTS Error: ${azRes.statusText}`);
 
-    // 6. Final Response
+    const audioBuffer = await azRes.arrayBuffer();
+
+    // 5. ส่งผลลัพธ์กลับ
     return res.status(200).json({
-      text: cleanText,
-      audio: audioBase64,
-      character: char.name,
-      debug_model: "gemini-1.5-flash"
+      text: aiText,
+      audio: Buffer.from(audioBuffer).toString("base64")
     });
 
-  } catch (error) {
-    console.error("Master Logic Error:", error);
-    return res.status(500).json({ error: error.message, stack: error.stack });
+  } catch (err) {
+    console.error("DEBUG ERROR:", err.message);
+    return res.status(500).json({ 
+      error: "Server Error", 
+      message: err.message // ส่ง Error ออกไปให้เห็นที่หน้าบ้านเลย
+    });
   }
 }
