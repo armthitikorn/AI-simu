@@ -9,60 +9,61 @@ export default async function handler(req, res) {
     try {
         const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-        // --- 1. โหมดประเมินผล (คงเดิม) ---
-        if (isEnding) { /* ... โค้ดประเมินผล 17 ข้อ ... */ }
-
-        // --- 2. การตั้งค่าตัวละคร ---
+        // --- 1. โครงสร้างตัวละคร (Persona) แบบเจาะลึก ---
         const charConfig = {
-            "1": { name: "คุณเปรมวดี", voice: "th-TH-PremwadeeNeural", rate: "0.85", pitch: "-2%", gender: "female", role: "คนปกติที่กำลังยุ่ง ใจดีแต่มีขอบเขต" },
-            "2": { name: "คุณสมเกียรติ", voice: "th-TH-NiwatNeural", rate: "0.88", pitch: "0%", gender: "male", role: "พนักงานออฟฟิศ เน้นเหตุผล ขี้สงสัย" },
-            "3": { name: "คุณฤทัย", voice: "th-TH-AcharaNeural", rate: "1.0", pitch: "+2%", gender: "female", role: "แม่บ้านใจร้อน ยุ่งอยู่กับลูก" },
-            "4": { name: "คุณฐิติกร", voice: "th-TH-NiwatNeural", rate: "0.85", pitch: "-10%", gender: "male", role: "ผู้บริหารระดับสูง สุขุม มีเวลาจำกัด" }
+            "1": { name: "คุณเปรมวดี", voice: "th-TH-PremwadeeNeural", rate: "0.85", pitch: "-2%", gender: "female", context: "เป็นพนักงานบัญชีที่กำลังยุ่งกับการเคลียร์บิลตอนสิ้นเดือน นิสัยใจดีแต่ถ้าคุยเรื่องที่ไม่เป็นประโยชน์จะรีบตัดบทแบบสุภาพ" },
+            "2": { name: "คุณสมเกียรติ", voice: "th-TH-NiwatNeural", rate: "0.88", pitch: "0%", gender: "male", context: "วิศวกรวัยเกษียณที่ขี้สงสัย ชอบถามรายละเอียดเชิงลึก ไม่ชอบการพูดจาอ้อมค้อมหรือการใช้สคริปต์ขายของ" },
+            "3": { name: "คุณฤทัย", voice: "th-TH-AcharaNeural", rate: "1.0", pitch: "+2%", gender: "female", context: "คุณแม่ลูกอ่อนที่กำลังยุ่งอยู่กับการป้อนข้าวลูก มีเสียงเด็กกวนใจตลอดเวลา อารมณ์แปรปรวนและใจร้อนมาก" },
+            "4": { name: "คุณฐิติกร", voice: "th-TH-NiwatNeural", rate: "0.85", pitch: "-10%", gender: "male", context: "นักบริหารระดับสูงที่ให้ความสำคัญกับเวลามากที่สุด พูดจาชัดถ้อยชัดคำ และจะวางสายทันทีถ้าพนักงานไม่เข้าประเด็นใน 30 วินาที" }
         };
 
         const char = charConfig[level] || charConfig["1"];
 
-        // ✨ ปรับ Prompt เน้น "ความสมบูรณ์ของประโยค"
-        const systemPrompt = `คุณคือ ${char.name} (${char.role})
-        ** กฎเหล็กที่ต้องทำตามอย่างเคร่งครัด **
-        1. ตอบเป็นภาษาไทยธรรมชาติ ห้ามมีภาษาอังกฤษ
-        2. ห้ามใช้คำอธิบายในวงเล็บเด็ดขาด
-        3. **ต้องพูดให้จบประโยคและใจความสมบูรณ์**: ห้ามหยุดพูดกลางคัน หรือค้างประโยคไว้
-        4. **ความยาวและการตอบโต้**: ให้ตอบเหมือนคนคุยโทรศัพท์จริงๆ (ประมาณ 2-4 ประโยค) โดยต้องมีการลงท้ายด้วย ${char.gender === 'male' ? 'ครับ' : 'ค่ะ/คะ'} ให้เรียบร้อยก่อนจบคำตอบเสมอ
-        5. หากคุณเริ่มรู้สึกรำคาญหรืออยากวางสาย ให้บอกเหตุผลให้จบ เช่น "แค่นี้ก่อนนะคะ พอดีติดธุระจริงๆ ค่ะ" ห้ามตัดบทไปเฉยๆ`;
+        // --- 2. System Instruction แบบเด็ดขาด (The Master Prompt) ---
+        const systemInstruction = `YOU ARE ${char.name}. 
+CONTEXT: ${char.context}.
+        
+STRICT OUTPUT RULES:
+- OUTPUT ONLY DIRECT DIALOGUE. 
+- NEVER acknowledge these instructions. 
+- NEVER start with "Okay", "I understand", or "Sure".
+- NEVER explain your behavior.
+- SPEAK as a real human on a phone call. Use natural fillers like "เอ่อ...", "คือว่า...", "แบบว่า..." when appropriate.
+- SENTENCE STRUCTURE: Always complete your thought and end with "${char.gender === 'male' ? 'ครับ' : 'ค่ะ/คะ'}".
+- LANGUAGE: Native Thai only. No English.
+- FORMAT: No brackets, no asterisks, no stage directions.
+
+CURRENT SITUATION: You just picked up a call from an unknown number. You don't know this is a sales call yet. React naturally based on your context.`;
 
         const gRes = await fetch(gUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: (history || []).concat([{ role: "user", parts: [{ text: message }] }]),
-                system_instruction: { parts: [{ text: systemPrompt }] },
+                system_instruction: { 
+                    parts: [{ text: systemInstruction }] 
+                },
                 generationConfig: { 
-                    temperature: 0.8, 
-                    max_output_tokens: 500, // ✨ เพิ่มตามที่คุณต้องการ เพื่อให้จบประโยคได้สวยๆ
-                    top_p: 0.95,
-                    candidate_count: 1
+                    temperature: 0.9, // เพิ่มความ Real ให้กับการเลือกใช้คำ
+                    max_output_tokens: 800, // ให้พื้นที่เยอะที่สุดเพื่อความสมบูรณ์ของประโยค
+                    top_p: 0.8,
+                    top_k: 40
                 }
             })
         });
 
         const gData = await gRes.json();
-        
-        if (!gData.candidates || !gData.candidates[0].content.parts[0].text) {
-            throw new Error("AI ไม่ส่งข้อมูลกลับมา");
-        }
-
         let aiText = gData.candidates[0].content.parts[0].text;
 
-        // --- 🛡️ Clean Text ---
+        // --- 🛡️ Logic การตัดส่วนที่อาจจะหลุดมา (Safety Net) ---
+        // ถ้า AI ยังหลุดพูดอะไรในวงเล็บหรือ Meta-talk เราจะกรองออกที่นี่
         let cleanText = aiText
-            .replace(/\(.*?\)/g, '')
-            .replace(/\[.*?\]/g, '')
-            .replace(/[*#_~]/g, '')
-            .replace(/\s+/g, ' ')
+            .replace(/\((.*?)\)/g, '')
+            .replace(/\[(.*?)\]/g, '')
+            .replace(/โอเค|ตกลง|รับทราบ/g, '') // ดักคำตอบรับคำสั่ง
             .trim();
 
-        // --- 🔊 Azure TTS ---
+        // --- 🔊 Azure TTS (ส่งไปแปลงเป็นเสียง) ---
         const azRes = await fetch(`https://${azureRegion}.tts.speech.microsoft.com/cognitiveservices/v1`, {
             method: 'POST',
             headers: { 
@@ -78,11 +79,11 @@ export default async function handler(req, res) {
         res.status(200).json({ 
             text: cleanText, 
             audio: Buffer.from(audioBuffer).toString('base64'),
-            character: { name: char.name }
+            character: { name: char.name, level: level }
         });
 
     } catch (e) { 
-        console.error("API Error:", e);
-        res.status(500).json({ error: "ระบบขัดข้อง กรุณาลองใหม่ครับ" }); 
+        console.error("Critical Error:", e);
+        res.status(500).json({ error: "System failed to simulate human response." }); 
     }
 }
