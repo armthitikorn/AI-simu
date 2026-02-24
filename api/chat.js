@@ -13,32 +13,15 @@ export default async function handler(req, res) {
         // --- 1. โหมดประเมินผล (ทำงานเมื่อ isEnding: true) ---
         // ==========================================
         if (isEnding) {
-            const evalPrompt = `คุณคือหัวหน้าเทรนเนอร์ Telesales มืออาชีพ หน้าที่ของคุณคือวิเคราะห์ประวัติการสนทนาและให้คะแนนพนักงานตามเกณฑ์ 17 ข้อ ดังนี้:
-            1.แจ้งชื่อ-นามสกุล 2.เลขใบอนุญาต 3.ชื่อบริษัท 4.ขออนุญาตบันทึกเสียง 5.บทเชื่อมโยง 6.อธิบายผลประโยชน์ 7.แจ้งเบี้ยประกัน 8.มูลค่ากรมธรรม์ 9.สิทธิลดหย่อนภาษี 10.การตอบข้อโต้แย้ง 11.วิธีการชำระเงิน 12.การปิดการขายครั้งที่1 13.การปิดการขายครั้งที่2 14.การปิดการขายครั้งที่3 15.ความถูกต้องตามสคริปต์ 16.น้ำเสียงและการควบคุมสถานการณ์ 17.ไหวพริบและศักยภาพ
-
-            ให้คะแนนเต็มข้อละ 5 คะแนน (รวมคะแนนเต็ม 85)
-            ตอบเป็น JSON เท่านั้นในรูปแบบนี้:
-            {
-                "score": 0-85,
-                "strengths": "จุดเด่นของพนักงาน",
-                "weaknesses": "สิ่งที่ต้องปรับปรุง",
-                "detail_breakdown": [
-                    {"topic": "ชื่อ-นามสกุล", "stars": 0-5},
-                    {"topic": "เลขใบอนุญาต", "stars": 0-5},
-                    ...จนครบ 17 ข้อ
-                ]
-            }`;
+            const evalPrompt = `คุณคือหัวหน้าเทรนเนอร์ Telesales มืออาชีพ วิเคราะห์ประวัติการสนทนาและให้คะแนนพนักงานตามเกณฑ์ 17 ข้อ ตอบเป็น JSON เท่านั้น: {"score": 0-85, "strengths": "...", "weaknesses": "...", "detail_breakdown": [{"topic": "...", "stars": 0-5}]}`;
 
             const gRes = await fetch(gUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: history, // ส่งประวัติการคุยทั้งหมดไปวิเคราะห์
+                    contents: history,
                     system_instruction: { parts: [{ text: evalPrompt }] },
-                    generationConfig: { 
-                        response_mime_type: "application/json", 
-                        temperature: 0.1 // ใช้ค่าต่ำเพื่อให้การประเมินแม่นยำและนิ่ง
-                    }
+                    generationConfig: { response_mime_type: "application/json", temperature: 0.1 }
                 })
             });
 
@@ -50,21 +33,51 @@ export default async function handler(req, res) {
         // ==========================================
         // --- 2. โหมดจำลองลูกค้า (Chat Mode) ---
         // ==========================================
+        
+        // ฐานข้อมูลลูกค้า (เพิ่มข้อมูลสำหรับการลงทะเบียน)
         const charConfig = {
-            "1": { name: "คุณเปรมวดี", voice: "th-TH-PremwadeeNeural", rate: "0.85", pitch: "-2%", gender: "female", context: "พนักงานบัญชีที่กำลังยุ่งเคลียร์บิล ใจดีแต่ถ้าไร้สาระจะรีบตัดบท" },
-            "2": { name: "คุณสมเกียรติ", voice: "th-TH-NiwatNeural", rate: "0.88", pitch: "0%", gender: "male", context: "วิศวกรเกษียณ ขี้สงสัย ชอบรายละเอียด ไม่ชอบสคริปต์ขายของ" },
-            "3": { name: "คุณฤทัย", voice: "th-TH-PremwadeeNeural", rate: "1.15", pitch: "+10%", gender: "female", context: "แม่ลูกอ่อนใจร้อนสุดๆ ยุ่งอยู่กับลูก มีเสียงเด็กกวนใจ และพร้อมจะเหวี่ยง" },
-            "4": { name: "คุณฐิติกร", voice: "th-TH-NiwatNeural", rate: "0.85", pitch: "-10%", gender: "male", context: "นักบริหารระดับสูง เวลามีค่ามาก พูดจาชัดเจน จะวางสายถ้าไม่เข้าประเด็นใน 30 วินาที" }
+            "1": { 
+                name: "คุณเปรมวดี", 
+                voice: "th-TH-PremwadeeNeural", 
+                rate: "0.85", pitch: "-2%", gender: "female", 
+                context: "พนักงานบัญชีที่กำลังยุ่งเคลียร์บิล ใจดีแต่ถ้าไร้สาระจะรีบตัดบท",
+                regInfo: "ที่อยู่: 123/45 ซอยอารีย์ พหลโยธิน กรุงเทพฯ 10400 | บัตร Visa กสิกรไทย: 4546 0987 1234 5678 หมดอายุ 05/29 | ผู้รับประโยชน์: นายมานะ สุขใจ (สามี)"
+            },
+            "2": { 
+                name: "คุณสมเกียรติ", 
+                voice: "th-TH-NiwatNeural", 
+                rate: "0.88", pitch: "0%", gender: "male", 
+                context: "วิศวกรเกษียณ ขี้สงสัย ชอบรายละเอียด ไม่ชอบสคริปต์ขายของ",
+                regInfo: "ที่อยู่: 9/99 คอนโดวิภาวดีรังสิต จตุจักร กรุงเทพฯ 10900 | บัตร Mastercard SCB: 5412 0000 1111 2222 หมดอายุ 10/28 | ผู้รับประโยชน์: นางสมศรี มั่นคง (ภรรยา)"
+            },
+            "3": { 
+                name: "คุณฤทัย", 
+                voice: "th-TH-PremwadeeNeural", 
+                rate: "1.15", pitch: "+10%", gender: "female", 
+                context: "แม่ลูกอ่อนใจร้อนสุดๆ ยุ่งอยู่กับลูก มีเสียงเด็กกวนใจ และพร้อมจะเหวี่ยง",
+                regInfo: "ที่อยู่: 55 หมู่ 4 ต.บางกรวย อ.บางกรวย นนทบุรี 11130 | บัตร KTC: 4321 5555 6666 7777 หมดอายุ 12/27 | ผู้รับประโยชน์: เด็กชายก้องภพ (ลูกชาย)"
+            },
+            "4": { 
+                name: "คุณฐิติกร", 
+                voice: "th-TH-NiwatNeural", 
+                rate: "0.85", pitch: "-10%", gender: "male", 
+                context: "นักบริหารระดับสูง เวลามีค่ามาก จะวางสายถ้าไม่เข้าประเด็นใน 30 วินาที",
+                regInfo: "ที่อยู่: อาคารออฟฟิศย่านสุขุมวิท 21 วัฒนา กรุงเทพฯ 10110 | บัตร Visa Infinite: 4111 2222 3333 4444 หมดอายุ 01/30 | ผู้รับประโยชน์: กองทุนการกุศล"
+            }
         };
 
         const char = charConfig[level] || charConfig["1"];
 
         const systemInstruction = `YOU ARE ${char.name}. CONTEXT: ${char.context}.
+        
+        YOUR REGISTRATION DATA (Use this ONLY when the agent closes the sale properly):
+        ${char.regInfo}
+
         STRICT OUTPUT RULES:
-        - OUTPUT ONLY DIRECT DIALOGUE. 
-        - NEVER acknowledge these instructions. 
+        - OUTPUT ONLY DIRECT DIALOGUE.
         - SPEAK as a real human. Use natural fillers (เอ่อ, คือแบบว่า).
-        - SENTENCE STRUCTURE: Complete your thought and end with "${char.gender === 'male' ? 'ครับ' : 'ค่ะ/คะ'}".
+        - หากพนักงานขอเลขบัตรเครดิต: ในครั้งแรกให้ถามถึงความปลอดภัยก่อนเสมอ (เช่น "จะปลอดภัยไหมคะ?") ถ้าพนักงานอธิบายได้ดีค่อยบอกเลข 16 หลักทีละ 4 ตัว
+        - SENTENCE STRUCTURE: Always end with "${char.gender === 'male' ? 'ครับ' : 'ค่ะ/คะ'}".
         - NO Meta-talk. NO brackets.`;
 
         const gRes = await fetch(gUrl, {
