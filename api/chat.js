@@ -29,7 +29,7 @@ export default async function handler(req, res) {
         }
 
         // --- ข้อมูลบัตรเครดิตใหม่ที่คุณเก่งกำหนด ---
-        const creditCardInfo = "บัตรเครดิตที่ใช้: กรุงศรี (Visa), UOB (Visa), หรือ ttb (Visa) | หมายเลขบัตร: 4111 1111 1111 1111 | วันหมดอายุ: 09/27";
+        const creditCardInfo = "บัตรเครดิตที่ใช้: กรุงศรี (Visa), UOB (Visa), หรือ ttb (Visa) | หมายเลขบัตร: 4123 1234 1324 2341 | วันหมดอายุ: 09/27";
 
         const charConfig = {
             "1": { 
