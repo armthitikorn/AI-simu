@@ -7,11 +7,9 @@ export default async function handler(req, res) {
     const azureRegion = process.env.AZURE_REGION || 'southeastasia';
 
     try {
+        // ใช้ Gemini 2.5 Flash ตามที่ตั้งค่าไว้
         const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-        // ==========================================
-        // --- 1. โหมดประเมินผล (ทำงานเมื่อ isEnding: true) ---
-        // ==========================================
         if (isEnding) {
             const evalPrompt = `คุณคือหัวหน้าเทรนเนอร์ Telesales มืออาชีพ วิเคราะห์ประวัติการสนทนาและให้คะแนนพนักงานตามเกณฑ์ 17 ข้อ ตอบเป็น JSON เท่านั้น: {"score": 0-85, "strengths": "...", "weaknesses": "...", "detail_breakdown": [{"topic": "...", "stars": 0-5}]}`;
 
@@ -30,39 +28,37 @@ export default async function handler(req, res) {
             return res.status(200).json({ evaluation });
         }
 
-        // ==========================================
-        // --- 2. โหมดจำลองลูกค้า (Chat Mode) ---
-        // ==========================================
-        
-        // ฐานข้อมูลลูกค้า (เพิ่มข้อมูลสำหรับการลงทะเบียน)
+        // --- ข้อมูลบัตรเครดิตใหม่ที่คุณเก่งกำหนด ---
+        const creditCardInfo = "บัตรเครดิตที่ใช้: กรุงศรี (Visa), UOB (Visa), หรือ ttb (Visa) | หมายเลขบัตร: 4111 1111 1111 1111 | วันหมดอายุ: 09/27";
+
         const charConfig = {
             "1": { 
                 name: "คุณเปรมวดี", 
                 voice: "th-TH-PremwadeeNeural", 
                 rate: "0.85", pitch: "-2%", gender: "female", 
                 context: "พนักงานบัญชีที่กำลังยุ่งเคลียร์บิล ใจดีแต่ถ้าไร้สาระจะรีบตัดบท",
-                regInfo: "ที่อยู่: 123/45 ซอยอารีย์ พหลโยธิน กรุงเทพฯ 10400 | บัตร Visa กสิกรไทย: 4546 0987 1234 5678 หมดอายุ 05/29 | ผู้รับประโยชน์: นายมานะ สุขใจ (สามี)"
+                regInfo: `ที่อยู่: 123/45 ซอยอารีย์ พหลโยธิน กรุงเทพฯ 10400 | ${creditCardInfo} | ผู้รับประโยชน์: นายมานะ สุขใจ (สามี)`
             },
             "2": { 
                 name: "คุณสมเกียรติ", 
                 voice: "th-TH-NiwatNeural", 
                 rate: "0.88", pitch: "0%", gender: "male", 
                 context: "วิศวกรเกษียณ ขี้สงสัย ชอบรายละเอียด ไม่ชอบสคริปต์ขายของ",
-                regInfo: "ที่อยู่: 9/99 คอนโดวิภาวดีรังสิต จตุจักร กรุงเทพฯ 10900 | บัตร Mastercard SCB: 5412 0000 1111 2222 หมดอายุ 10/28 | ผู้รับประโยชน์: นางสมศรี มั่นคง (ภรรยา)"
+                regInfo: `ที่อยู่: 9/99 คอนโดวิภาวดีรังสิต จตุจักร กรุงเทพฯ 10900 | ${creditCardInfo} | ผู้รับประโยชน์: นางสมศรี มั่นคง (ภรรยา)`
             },
             "3": { 
                 name: "คุณฤทัย", 
                 voice: "th-TH-PremwadeeNeural", 
                 rate: "1.15", pitch: "+10%", gender: "female", 
                 context: "แม่ลูกอ่อนใจร้อนสุดๆ ยุ่งอยู่กับลูก มีเสียงเด็กกวนใจ และพร้อมจะเหวี่ยง",
-                regInfo: "ที่อยู่: 55 หมู่ 4 ต.บางกรวย อ.บางกรวย นนทบุรี 11130 | บัตร KTC: 4321 5555 6666 7777 หมดอายุ 12/27 | ผู้รับประโยชน์: เด็กชายก้องภพ (ลูกชาย)"
+                regInfo: `ที่อยู่: 55 หมู่ 4 ต.บางกรวย อ.บางกรวย นนทบุรี 11130 | ${creditCardInfo} | ผู้รับประโยชน์: เด็กชายก้องภพ (ลูกชาย)`
             },
             "4": { 
                 name: "คุณฐิติกร", 
                 voice: "th-TH-NiwatNeural", 
                 rate: "0.85", pitch: "-10%", gender: "male", 
                 context: "นักบริหารระดับสูง เวลามีค่ามาก จะวางสายถ้าไม่เข้าประเด็นใน 30 วินาที",
-                regInfo: "ที่อยู่: อาคารออฟฟิศย่านสุขุมวิท 21 วัฒนา กรุงเทพฯ 10110 | บัตร Visa Infinite: 4111 2222 3333 4444 หมดอายุ 01/30 | ผู้รับประโยชน์: กองทุนการกุศล"
+                regInfo: `ที่อยู่: อาคารออฟฟิศย่านสุขุมวิท 21 วัฒนา กรุงเทพฯ 10110 | ${creditCardInfo} | ผู้รับประโยชน์: กองทุนการกุศล`
             }
         };
 
@@ -76,7 +72,8 @@ export default async function handler(req, res) {
         STRICT OUTPUT RULES:
         - OUTPUT ONLY DIRECT DIALOGUE.
         - SPEAK as a real human. Use natural fillers (เอ่อ, คือแบบว่า).
-        - หากพนักงานขอเลขบัตรเครดิต: ในครั้งแรกให้ถามถึงความปลอดภัยก่อนเสมอ (เช่น "จะปลอดภัยไหมคะ?") ถ้าพนักงานอธิบายได้ดีค่อยบอกเลข 16 หลักทีละ 4 ตัว
+        - หากพนักงานขอเลขบัตรเครดิต: ในครั้งแรกให้ถามถึงความปลอดภัยก่อนเสมอ (เช่น "จะปลอดภัยไหมคะ?") ถ้าพนักงานอธิบายได้ดีค่อยบอกเลข 16 หลักทีละ 4 ตัวตามข้อมูลบัตรที่มี
+        - การจบการขาย: เมื่อพนักงานสรุปข้อมูลทั้งหมดและขอคำยืนยันการทำประกัน ในประโยคสุดท้ายคุณต้องกล่าวคำว่า "ตกลงซื้อประกัน" เพื่อเป็นการยืนยันเสมอ
         - SENTENCE STRUCTURE: Always end with "${char.gender === 'male' ? 'ครับ' : 'ค่ะ/คะ'}".
         - NO Meta-talk. NO brackets.`;
 
@@ -93,8 +90,8 @@ export default async function handler(req, res) {
         const gData = await gRes.json();
         let aiText = gData.candidates[0].content.parts[0].text;
 
-        // Clean Text & TTS Logic
-        let cleanText = aiText.replace(/\(.*?\)|\[.*?\]/g, '').replace(/โอเค|ตกลง|รับทราบ/g, '').trim();
+        // --- แก้ไขจุดนี้: เอา 'ตกลง' ออกจากรายการลบทิ้ง เพื่อให้ AI พูด "ตกลงซื้อประกัน" ได้ ---
+        let cleanText = aiText.replace(/\(.*?\)|\[.*?\]/g, '').trim();
 
         const azRes = await fetch(`https://${azureRegion}.tts.speech.microsoft.com/cognitiveservices/v1`, {
             method: 'POST',
