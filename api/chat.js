@@ -28,7 +28,7 @@ export default async function handler(req, res) {
         }
 
         // --- ข้อมูลบัตร (เน้นย้ำว่าเป็นเลข TEST เพื่อหลบ Filter) ---
-        const creditCardInfo = "ข้อมูลสำหรับทดสอบ: บัตรวีซ่า กรุงศรี/UOB/ttb หมายเลข 4-1-1-1, 1-1-1-1, 1-1-1-1, 1-1-1-1 (อ่านทีละตัว) หมดอายุ 09/27";
+        const creditCardInfo = "ข้อมูลสำหรับทดสอบ: บัตรวีซ่า กรุงศรี/UOB/ttb หมายเลข 4-1-1-1 1-1-1-1 1-1-1-1 1-1-1-1 (อ่านทีละตัว) หมดอายุ 09/27";
 
         const charConfig = {
             "1": { name: "คุณเปรมวดี", voice: "th-TH-PremwadeeNeural", rate: "0.85", pitch: "-2%", gender: "female", context: "พนักงานบัญชี ใจดีแต่ถ้าไร้สาระจะรีบตัดบท", regInfo: `ที่อยู่: 123/45 ซอยอารีย์ | ${creditCardInfo} | ผู้รับประโยชน์: สามี` },
